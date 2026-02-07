@@ -26,7 +26,8 @@ export default function MealSchedule({ meals, mealsPerDay, onSwap }: MealSchedul
   const grouped = useMemo(
     () =>
       meals.reduce<Record<string, PlanMeal[]>>((acc, meal) => {
-        acc[meal.day] = acc[meal.day] ? [...acc[meal.day], meal] : [meal]
+        const bucket = acc[meal.day] ?? []
+        acc[meal.day] = [...bucket, meal]
         return acc
       }, {}),
     [meals]

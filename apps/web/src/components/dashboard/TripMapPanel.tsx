@@ -41,14 +41,13 @@ export default function TripMapPanel({
 }: TripMapPanelProps) {
   const resolvedStopId = activeStopId ?? stops[0]?.id ?? null
 
-  const center = useMemo<[number, number]>(() => {
-    if (route.length > 0) {
-      return route[0]
+  const center = useMemo<LatLng>(() => {
+    const routeStart = route[0]
+    if (routeStart) {
+      return routeStart
     }
-    if (stops.length > 0) {
-      return [stops[0].lat, stops[0].lng]
-    }
-    return [45.4215, -75.6972]
+    const firstStop = stops[0]
+    return firstStop ? [firstStop.lat, firstStop.lng] : [45.4215, -75.6972]
   }, [route, stops])
   const path = useMemo<[number, number][]>(() => {
     if (route.length > 0) {
