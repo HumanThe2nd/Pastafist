@@ -1,4 +1,4 @@
-import type { GroceryListItem, PlanMeal, PlanSummary } from '../types'
+import type { GroceryListItem, GroceryRunGroup, PlanMeal, PlanSummary } from '../types'
 
 export const planSummary: PlanSummary = {
   id: 'plan-2025-02-06',
@@ -27,8 +27,8 @@ export const groceryList: GroceryListItem[] = [
     bestStore: 'Metro',
     purchased: true,
     storeOptions: [
-      { store: 'Metro', unitPrice: '$6.99/kg', quantity: '1.2 kg' },
-      { store: 'Costco', unitPrice: '$6.20/kg', quantity: '1.5 kg' }
+      { store: 'Metro', unitPrice: '$6.99/kg', quantity: '1.2 kg', purchaseUrl: 'https://metro.example/item/chicken' },
+      { store: 'Costco', unitPrice: '$6.20/kg', quantity: '1.5 kg', purchaseUrl: 'https://costco.example/item/chicken' }
     ]
   },
   {
@@ -38,8 +38,8 @@ export const groceryList: GroceryListItem[] = [
     bestStore: 'Farm Boy',
     purchased: false,
     storeOptions: [
-      { store: 'Farm Boy', unitPrice: '$2.20/bag', quantity: '2 bags' },
-      { store: 'Loblaws', unitPrice: '$2.60/bag', quantity: '2 bags' }
+      { store: 'Farm Boy', unitPrice: '$2.20/bag', quantity: '2 bags', purchaseUrl: 'https://farmboy.example/item/spinach' },
+      { store: 'Loblaws', unitPrice: '$2.60/bag', quantity: '2 bags', purchaseUrl: 'https://loblaws.example/item/spinach' }
     ]
   },
   {
@@ -49,8 +49,8 @@ export const groceryList: GroceryListItem[] = [
     bestStore: 'Costco',
     purchased: false,
     storeOptions: [
-      { store: 'Costco', unitPrice: '$6.49/1 kg', quantity: '2 tubs' },
-      { store: 'Metro', unitPrice: '$3.99/500 g', quantity: '2 tubs' }
+      { store: 'Costco', unitPrice: '$6.49/1 kg', quantity: '2 tubs', purchaseUrl: 'https://costco.example/item/yogurt' },
+      { store: 'Metro', unitPrice: '$3.99/500 g', quantity: '2 tubs', purchaseUrl: 'https://metro.example/item/yogurt' }
     ]
   },
   {
@@ -60,8 +60,8 @@ export const groceryList: GroceryListItem[] = [
     bestStore: 'Loblaws',
     purchased: false,
     storeOptions: [
-      { store: 'Loblaws', unitPrice: '$3.49/pint', quantity: '1 pint' },
-      { store: 'Walmart', unitPrice: '$3.99/pint', quantity: '1 pint' }
+      { store: 'Loblaws', unitPrice: '$3.49/pint', quantity: '1 pint', purchaseUrl: 'https://loblaws.example/item/tomatoes' },
+      { store: 'Walmart', unitPrice: '$3.99/pint', quantity: '1 pint', purchaseUrl: 'https://walmart.example/item/tomatoes' }
     ]
   },
   {
@@ -71,8 +71,45 @@ export const groceryList: GroceryListItem[] = [
     bestStore: 'Walmart',
     purchased: true,
     storeOptions: [
-      { store: 'Walmart', unitPrice: '$2.49/pack', quantity: '1 pack' },
-      { store: 'No Frills', unitPrice: '$2.79/pack', quantity: '1 pack' }
+      { store: 'Walmart', unitPrice: '$2.49/pack', quantity: '1 pack', purchaseUrl: 'https://walmart.example/item/tortillas' },
+      { store: 'No Frills', unitPrice: '$2.79/pack', quantity: '1 pack', purchaseUrl: 'https://nofrills.example/item/tortillas' }
     ]
+  },
+  {
+    id: 'g6',
+    name: 'Bell peppers',
+    totalNeeded: '3 peppers',
+    bestStore: 'No Frills',
+    purchased: false,
+    storeOptions: [
+      { store: 'No Frills', unitPrice: '$1.49 each', quantity: '3 peppers', purchaseUrl: 'https://nofrills.example/item/peppers' },
+      { store: 'Walmart', unitPrice: '$1.59 each', quantity: '3 peppers', purchaseUrl: 'https://walmart.example/item/peppers' }
+    ]
+  }
+]
+
+export const groceryRunGroups: GroceryRunGroup[] = [
+  {
+    id: 'run-current',
+    label: 'This run',
+    subtitle: 'Auto-scheduled for this trip',
+    status: 'current',
+    runDate: 'Thu',
+    items: [groceryList[1], groceryList[2]].filter(Boolean) as GroceryListItem[]
+  },
+  {
+    id: 'run-later-1',
+    label: 'Later run',
+    subtitle: 'Next scheduled trip',
+    status: 'later',
+    runDate: 'Sun',
+    items: [groceryList[3], groceryList[5]].filter(Boolean) as GroceryListItem[]
+  },
+  {
+    id: 'run-purchased',
+    label: 'Purchased',
+    subtitle: 'Already completed',
+    status: 'purchased',
+    items: groceryList.filter((item) => item.purchased)
   }
 ]

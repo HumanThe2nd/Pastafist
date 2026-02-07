@@ -21,6 +21,7 @@ export interface StoreOption {
   store: string
   unitPrice: string
   quantity: string
+  purchaseUrl: string
 }
 
 export interface GroceryListItem {
@@ -30,4 +31,15 @@ export interface GroceryListItem {
   bestStore: string
   purchased: boolean
   storeOptions: StoreOption[]
+}
+
+export type GroceryRunStatus = 'current' | 'later' | 'purchased'
+
+export interface GroceryRunGroup {
+  id: string
+  label: string
+  subtitle?: string
+  status: GroceryRunStatus
+  items: GroceryListItem[]
+  runDate?: string
 }

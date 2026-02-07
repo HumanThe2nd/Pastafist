@@ -1,19 +1,16 @@
-import type { GroceryListItem } from '../../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { GroceryRunGroup } from '../../types'
 
 type GroceryListProps = {
-  runItems: GroceryListItem[]
-  laterItems: GroceryListItem[]
-  purchasedItems: GroceryListItem[]
+  groups: GroceryRunGroup[]
   shoppingIntervalDays: number
   shoppingFrequencyLabel: string
   onToggleItem: (id: string) => void
-  onMarkAllDone: () => void
-  runActive: boolean
   onStartRun: () => void
   onFinishRun: () => void
 }
 
-const renderItem = (item: GroceryListItem, onToggleItem: (id: string) => void) => {
+const renderItem = (item: GroceryRunGroup['items'][number], onToggleItem: (id: string) => void) => {
   const bestOption = item.storeOptions.find((option) => option.store === item.bestStore) ?? item.storeOptions[0]
   const alternatives = item.storeOptions.filter((option) => option.store !== bestOption?.store)
 
@@ -39,10 +36,22 @@ const renderItem = (item: GroceryListItem, onToggleItem: (id: string) => void) =
         </div>
         <span className="text-xs text-ink/50 dark:text-[#c8b9a9]">{item.purchased ? 'Purchased' : 'Pending'}</span>
       </label>
-      <div className="mt-2 text-xs text-ink/60 dark:text-[#c8b9a9]">
-        Chosen store:{' '}
-        <span className="font-medium text-ink dark:text-[#f5f0e8]">{bestOption?.store ?? item.bestStore}</span>
-        {bestOption ? ` · ${bestOption.unitPrice} · ${bestOption.quantity}` : null}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60 dark:text-[#c8b9a9]">
+        <span>
+          Chosen store:{' '}
+          <span className="font-medium text-ink dark:text-[#f5f0e8]">{bestOption?.store ?? item.bestStore}</span>
+          {bestOption ? ` · ${bestOption.unitPrice} · ${bestOption.quantity}` : null}
+        </span>
+        {bestOption?.purchaseUrl ? (
+          <a
+            className="rounded-full border border-ink/20 px-3 py-1 text-[11px] dark:border-[#3a2b24]"
+            href={bestOption.purchaseUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Buy link
+          </a>
+        ) : null}
       </div>
       {alternatives.length > 0 ? (
         <details className="mt-2 text-xs text-ink/60 dark:text-[#c8b9a9]">
@@ -61,19 +70,34 @@ const renderItem = (item: GroceryListItem, onToggleItem: (id: string) => void) =
 }
 
 export default function GroceryList({
-  runItems,
-  laterItems,
-  purchasedItems,
+  groups,
   shoppingIntervalDays,
   shoppingFrequencyLabel,
   onToggleItem,
-  onMarkAllDone,
-  runActive,
   onStartRun,
   onFinishRun
 }: GroceryListProps) {
-  const remaining = runItems.length + laterItems.length
-  const canShopNow = remaining > 0 && !runActive
+  const runGroups = groups.filter((group) => group.status !== 'purchased')
+  const purchasedGroups = groups.filter((group) => group.status === 'purchased')
+
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+
+  const remaining = runGroups
+    .flatMap((group) => group.items)
+    .filter((item) => !item.purchased).length
+
+  const currentGroup = runGroups.find((group) => group.status === 'current')
+
+  useEffect(() => {
+    if (!activeRunId || !runGroups.some((group) => group.id === activeRunId)) {
+      setActiveRunId(currentGroup?.id ?? runGroups[0]?.id ?? null)
+    }
+  }, [activeRunId, runGroups, currentGroup])
+
+  const activeGroup = useMemo(
+    () => runGroups.find((group) => group.id === activeRunId) ?? runGroups[0],
+    [runGroups, activeRunId]
+  )
 
   return (
     <div className="rounded-3xl bg-white px-6 py-5 shadow-soft dark:bg-[#1a1411]">
@@ -86,7 +110,7 @@ export default function GroceryList({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {runActive ? (
+          {currentGroup ? (
             <button
               className="rounded-full bg-leaf px-4 py-2 text-xs text-white dark:bg-[#d67a3f] dark:text-[#1a120f]"
               onClick={onFinishRun}
@@ -98,55 +122,59 @@ export default function GroceryList({
             <button
               className={[
                 'rounded-full px-4 py-2 text-xs',
-                canShopNow
+                remaining > 0
                   ? 'bg-forest text-sand dark:bg-[#d67a3f] dark:text-[#1a120f]'
                   : 'bg-ink/10 text-ink/50 dark:bg-[#2a1f1a] dark:text-[#8d7f73]'
               ].join(' ')}
               onClick={onStartRun}
               type="button"
-              disabled={!canShopNow}
+              disabled={remaining === 0}
             >
               I can shop now
             </button>
           )}
-          <button
-            className="rounded-full border border-ink/20 px-4 py-2 text-xs dark:border-[#3a2b24] dark:text-[#e4d7c9]"
-            onClick={onMarkAllDone}
-            type="button"
-          >
-            Mark all done
-          </button>
         </div>
       </div>
 
       <div className="mt-4 grid gap-3">
-        <div className="rounded-2xl border border-ink/10 bg-white/60 px-4 py-3 text-xs text-ink/60 dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#c8b9a9]">
-          This run · {runItems.length} items
+        <div className="flex flex-wrap gap-2">
+          {runGroups.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => setActiveRunId(group.id)}
+              className={[
+                'rounded-full border px-3 py-1 text-xs',
+                activeGroup?.id === group.id
+                  ? 'border-leaf/50 bg-mist text-ink dark:border-[#d67a3f] dark:bg-[#231815] dark:text-[#f5f0e8]'
+                  : 'border-ink/10 text-ink/50 dark:border-[#3b2923] dark:text-[#8d7f73]'
+              ].join(' ')}
+            >
+              {group.runDate ?? group.label} · {group.items.length}
+            </button>
+          ))}
         </div>
-        {runItems.length === 0 ? (
-          <p className="text-xs text-ink/50 dark:text-[#c8b9a9]">No items scheduled for this run.</p>
+
+        <div className="rounded-2xl border border-ink/10 bg-white/60 px-4 py-3 text-xs text-ink/60 dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#c8b9a9]">
+          {activeGroup?.label ?? 'This run'} · {activeGroup?.items.length ?? 0} items
+          {activeGroup?.subtitle ? ` · ${activeGroup.subtitle}` : ''}
+        </div>
+
+        {activeGroup?.items.length ? (
+          activeGroup.items.map((item) => renderItem(item, onToggleItem))
         ) : (
-          runItems.map((item) => renderItem(item, onToggleItem))
+          <p className="text-xs text-ink/50 dark:text-[#c8b9a9]">No items scheduled for this run.</p>
         )}
 
-        {laterItems.length > 0 ? (
+        {purchasedGroups.length > 0 ? (
           <details className="rounded-2xl border border-ink/10 bg-white/60 px-4 py-3 dark:border-[#352721] dark:bg-[#1a1411]">
             <summary className="cursor-pointer text-xs text-ink/60 dark:text-[#c8b9a9]">
-              Later runs · {laterItems.length} items
+              Purchased · {purchasedGroups.reduce((count, group) => count + group.items.length, 0)} items
             </summary>
             <div className="mt-3 grid gap-3">
-              {laterItems.map((item) => renderItem(item, onToggleItem))}
-            </div>
-          </details>
-        ) : null}
-
-        {purchasedItems.length > 0 ? (
-          <details className="rounded-2xl border border-ink/10 bg-white/60 px-4 py-3 dark:border-[#352721] dark:bg-[#1a1411]">
-            <summary className="cursor-pointer text-xs text-ink/60 dark:text-[#c8b9a9]">
-              Purchased · {purchasedItems.length} items
-            </summary>
-            <div className="mt-3 grid gap-3">
-              {purchasedItems.map((item) => renderItem(item, onToggleItem))}
+              {purchasedGroups.map((group) =>
+                group.items.map((item) => renderItem(item, onToggleItem))
+              )}
             </div>
           </details>
         ) : null}
