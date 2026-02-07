@@ -8,7 +8,9 @@ type InputFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
 export default function InputField({ label, hint, className, ...props }: InputFieldProps) {
   return (
     <label className="grid gap-2 text-sm text-ink/70 dark:text-[#c8b9a9]">
-      <span className="text-xs uppercase tracking-[0.2em] text-ink/50 dark:text-[#c8b9a9]">{label}</span>
+      <span className="text-[11px] uppercase tracking-[0.18em] leading-tight text-ink/50 dark:text-[#c8b9a9]">
+        {label}
+      </span>
       <input
         className={[
           'w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-ink',

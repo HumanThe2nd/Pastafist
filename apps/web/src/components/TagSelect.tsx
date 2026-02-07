@@ -18,7 +18,9 @@ export default function TagSelect({ label, options, value, onChange, helper }: T
   return (
     <div className="grid gap-3">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-ink/50 dark:text-[#c8b9a9]">{label}</p>
+        <p className="text-[11px] uppercase tracking-[0.18em] leading-tight text-ink/50 dark:text-[#c8b9a9]">
+          {label}
+        </p>
         {helper ? <p className="text-sm text-ink/60 dark:text-[#c8b9a9]">{helper}</p> : null}
       </div>
       <div className="flex flex-wrap gap-2">

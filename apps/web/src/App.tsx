@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react'
+import Dashboard from './views/Dashboard'
 import Onboarding from './views/Onboarding'
 
 const stats = [
@@ -64,6 +66,16 @@ const storeHighlights = [
 ]
 
 export default function App() {
+  const [view, setView] = useState<'landing' | 'dashboard'>('landing')
+  const onboardingRef = useRef<HTMLDivElement | null>(null)
+
+  const jumpToOnboarding = () => {
+    setView('landing')
+    requestAnimationFrame(() => {
+      onboardingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   return (
     <div className="min-h-screen bg-hero bg-no-repeat bg-cover text-ink dark:bg-[#17110f] dark:text-[#f5f0e8]">
       <div className="mx-auto flex max-w-6xl flex-col gap-20 px-6 pb-16 pt-10">
@@ -84,41 +96,61 @@ export default function App() {
               <a className="hover:text-leaf dark:hover:text-[#f0b36a]" href="#local-deals">Local deals</a>
             </nav>
             <div className="flex flex-wrap items-center gap-3">
-              <button className="rounded-full border border-ink/20 px-4 py-2 text-sm dark:border-[#3a2b24] dark:text-[#e4d7c9]">Sign in</button>
-              <button className="rounded-full bg-leaf px-5 py-2 text-sm text-white dark:bg-[#d67a3f] dark:text-[#1a120f]">Start planning</button>
+              <button
+                className="rounded-full border border-ink/20 px-4 py-2 text-sm dark:border-[#3a2b24] dark:text-[#e4d7c9]"
+                onClick={() => setView('dashboard')}
+              >
+                Sign in
+              </button>
+              <button
+                className="rounded-full bg-leaf px-5 py-2 text-sm text-white dark:bg-[#d67a3f] dark:text-[#1a120f]"
+                onClick={jumpToOnboarding}
+              >
+                Start planning
+              </button>
             </div>
           </div>
 
-          <section className="relative mt-12">
-            <div className="flex flex-col gap-6 lg:pr-[46%]">
-              <p className="text-xs uppercase tracking-[0.35em] text-ink/50 dark:text-[#c8b9a9]">Budget. Distance. Nutrition.</p>
-              <h1 className="font-display text-4xl leading-tight text-ink dark:text-[#f5f0e8] md:text-5xl">
-                Grocery plans that fit your budget and the stores around you.
-              </h1>
-              <p className="text-lg text-ink/70 dark:text-[#c8b9a9]">
-                Plan meals using live store prices, your dietary goals, and travel time. No account required. Save your
-                preferences locally, then sync whenever you are ready.
-              </p>
-              <div className="grid gap-4 md:grid-cols-3">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-2xl border border-leaf/10 bg-mist px-5 py-4 dark:border-[#3b2923] dark:bg-[#231815]"
-                  >
-                    <p className="text-xs uppercase tracking-[0.2em] text-ink/50 dark:text-[#c8b9a9]">{stat.label}</p>
-                    <p className="font-display text-2xl text-ink dark:text-[#f5f0e8]">{stat.value}</p>
-                  </div>
-                ))}
+          {view === 'landing' ? (
+            <section className="relative mt-12">
+              <div className="flex flex-col gap-6 lg:pr-[46%]">
+                <p className="text-xs uppercase tracking-[0.35em] text-ink/50 dark:text-[#c8b9a9]">
+                  Budget. Distance. Nutrition.
+                </p>
+                <h1 className="font-display text-4xl leading-tight text-ink dark:text-[#f5f0e8] md:text-5xl">
+                  Grocery plans that fit your budget and the stores around you.
+                </h1>
+                <p className="text-lg text-ink/70 dark:text-[#c8b9a9]">
+                  Plan meals using live store prices, your dietary goals, and travel time. No account required. Save your
+                  preferences locally, then sync whenever you are ready.
+                </p>
+                <div className="grid gap-4 md:grid-cols-3">
+                  {stats.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-2xl border border-leaf/10 bg-mist px-5 py-4 dark:border-[#3b2923] dark:bg-[#231815]"
+                    >
+                      <p className="text-xs uppercase tracking-[0.2em] text-ink/50 dark:text-[#c8b9a9]">{stat.label}</p>
+                      <p className="font-display text-2xl text-ink dark:text-[#f5f0e8]">{stat.value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="mt-8 lg:absolute lg:right-0 lg:top-0 lg:h-full lg:w-[42%] lg:overflow-auto lg:pr-1">
-              <Onboarding />
-            </div>
-          </section>
+              <div
+                ref={onboardingRef}
+                className="mt-8 lg:absolute lg:right-0 lg:top-0 lg:mt-0 lg:h-full lg:w-[42%] lg:overflow-auto lg:pr-1"
+              >
+                <Onboarding onComplete={() => setView('dashboard')} />
+              </div>
+            </section>
+          ) : (
+            <Dashboard onUpdatePreferences={jumpToOnboarding} />
+          )}
         </header>
 
-        <section id="how-it-works" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">
+        {view === 'landing' ? (
+          <section id="how-it-works" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-ink/50 dark:text-[#c8b9a9]">Onboarding</p>
@@ -163,8 +195,10 @@ export default function App() {
             </div>
           </div>
         </section>
+        ) : null}
 
-        <section id="diet-profiles" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">
+        {view === 'landing' ? (
+          <section id="diet-profiles" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-ink/50 dark:text-[#c8b9a9]">Diet profiles</p>
@@ -186,8 +220,10 @@ export default function App() {
             </div>
           </div>
         </section>
+        ) : null}
 
-        <section id="local-deals" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">
+        {view === 'landing' ? (
+          <section id="local-deals" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-ink/50 dark:text-[#c8b9a9]">Local deals</p>
@@ -214,6 +250,7 @@ export default function App() {
             </div>
           </div>
         </section>
+        ) : null}
 
         <footer className="flex flex-wrap items-center justify-between gap-6 px-2 text-sm text-ink/60 dark:text-[#c8b9a9]">
           <div>

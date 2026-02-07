@@ -18,7 +18,25 @@ export type Gender = 'female' | 'male' | 'non-binary' | 'prefer-not-to-say'
 
 export type BudgetPeriod = 'weekly' | 'biweekly' | 'monthly'
 
-export interface OnboardingPreferences {
+export type ShoppingFrequency = 'every_other_day' | 'twice_weekly' | 'weekly' | 'biweekly' | 'monthly'
+
+export const SHOPPING_INTERVAL_DAYS: Record<ShoppingFrequency, number> = {
+  every_other_day: 2,
+  twice_weekly: 3.5,
+  weekly: 7,
+  biweekly: 14,
+  monthly: 30
+}
+
+export const SHOPPING_FREQUENCY_OPTIONS: Array<{ value: ShoppingFrequency; label: string }> = [
+  { value: 'every_other_day', label: 'Every other day' },
+  { value: 'twice_weekly', label: 'Twice weekly' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Biweekly' },
+  { value: 'monthly', label: 'Monthly' }
+]
+
+export interface BudgetPreferences {
   budget: number
   currency: string
   budgetPeriod: BudgetPeriod
@@ -27,15 +45,24 @@ export interface OnboardingPreferences {
   travelRadiusMinutes: number
   travelMode: TravelMode
   servings: number
+}
+
+export interface NutritionPreferences {
   dietType: DietType
   allergies: string[]
   exclusions: string[]
   macroFocus: MacroFocus
-  calorieGoal?: number
-  gender?: Gender
-  location?: string
-  preferredStores: string[]
+  calorieGoal?: number | null
 }
+
+export interface ProfilePreferences {
+  gender?: Gender | null
+  location?: string | null
+  preferredStores: string[]
+  shoppingFrequency: ShoppingFrequency
+}
+
+export interface OnboardingPreferences extends BudgetPreferences, NutritionPreferences, ProfilePreferences {}
 
 export const defaultPreferences: OnboardingPreferences = {
   budget: 65,
@@ -50,14 +77,17 @@ export const defaultPreferences: OnboardingPreferences = {
   allergies: [],
   exclusions: [],
   macroFocus: 'balanced',
-  calorieGoal: undefined,
-  gender: undefined,
-  location: undefined,
-  preferredStores: []
+  calorieGoal: null,
+  gender: null,
+  location: null,
+  preferredStores: [],
+  shoppingFrequency: 'weekly'
 }
 
+export type StepId = 'welcome' | 'constraints' | 'diet' | 'stores'
+
 export interface StepDefinition {
-  id: 'welcome' | 'constraints' | 'diet' | 'stores'
+  id: StepId
   title: string
   description: string
 }

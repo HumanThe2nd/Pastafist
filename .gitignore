@@ -1,0 +1,10 @@
+node_modules
+.DS_Store
+.env
+.env.*
+coverage
+apps/web/dist
+apps/web/.vite
+__pycache__
+*.pyc
+.venv
