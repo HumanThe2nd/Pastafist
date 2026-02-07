@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import Dashboard from './views/Dashboard'
 import Onboarding from './views/Onboarding'
+import { loadPreferences } from './utils/preferences'
 
 const stats = [
   { label: 'Avg. weekly savings', value: '$18' },
@@ -67,6 +68,8 @@ const storeHighlights = [
 
 export default function App() {
   const [view, setView] = useState<'landing' | 'dashboard'>('landing')
+  const [preferences, setPreferences] = useState(loadPreferences)
+  const [showPreferences, setShowPreferences] = useState(false)
   const onboardingRef = useRef<HTMLDivElement | null>(null)
 
   const jumpToOnboarding = () => {
@@ -141,13 +144,45 @@ export default function App() {
                 ref={onboardingRef}
                 className="mt-8 lg:absolute lg:right-0 lg:top-0 lg:mt-0 lg:h-full lg:w-[42%] lg:overflow-auto lg:pr-1"
               >
-                <Onboarding onComplete={() => setView('dashboard')} />
+                <Onboarding
+                  initialPreferences={preferences}
+                  onComplete={(next) => {
+                    setPreferences(next)
+                    setView('dashboard')
+                  }}
+                />
               </div>
             </section>
           ) : (
-            <Dashboard onUpdatePreferences={jumpToOnboarding} />
+            <Dashboard
+              preferences={preferences}
+              onUpdatePreferences={() => setShowPreferences(true)}
+            />
           )}
         </header>
+
+        {view === 'dashboard' && showPreferences ? (
+          <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40 px-4 py-8">
+            <div className="relative h-full w-full max-w-xl overflow-auto rounded-3xl bg-mist p-4 shadow-soft dark:bg-[#1a1411] md:p-6">
+              <button
+                className="absolute right-4 top-4 rounded-full border border-ink/20 px-3 py-1 text-xs text-ink/70 dark:border-[#3a2b24] dark:text-[#e4d7c9]"
+                onClick={() => setShowPreferences(false)}
+                type="button"
+              >
+                Close
+              </button>
+              <Onboarding
+                initialPreferences={preferences}
+                eyebrowLabel="Preferences"
+                mode="preferences"
+                onComplete={(next) => {
+                  setPreferences(next)
+                  setShowPreferences(false)
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {view === 'landing' ? (
           <section id="how-it-works" className="rounded-3xl bg-white/80 p-8 shadow-soft dark:bg-[#1f1714] md:p-10">

@@ -55,11 +55,23 @@ type GeoapifySuggestion = {
 
 type OnboardingProps = {
   onComplete?: (preferences: OnboardingPreferences) => void
+  initialPreferences?: OnboardingPreferences
+  eyebrowLabel?: string
+  mode?: 'onboarding' | 'preferences'
 }
 
-export default function Onboarding({ onComplete }: OnboardingProps) {
-  const [currentStep, setCurrentStep] = useState<StepDefinition['id']>('welcome')
-  const [preferences, setPreferences] = useState<OnboardingPreferences>(defaultPreferences)
+export default function Onboarding({
+  onComplete,
+  initialPreferences,
+  eyebrowLabel,
+  mode = 'onboarding'
+}: OnboardingProps) {
+  const flowSteps = useMemo(
+    () => (mode === 'preferences' ? steps.filter((step) => step.id !== 'welcome') : steps),
+    [mode]
+  )
+  const [currentStep, setCurrentStep] = useState<StepDefinition['id']>(flowSteps[0]?.id ?? 'welcome')
+  const [preferences, setPreferences] = useState<OnboardingPreferences>(initialPreferences ?? defaultPreferences)
   const [locationQuery, setLocationQuery] = useState(preferences.location ?? '')
   const [locationResults, setLocationResults] = useState<GeoapifySuggestion[]>([])
   const [locationOpen, setLocationOpen] = useState(false)
@@ -68,19 +80,25 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const activeRequest = useRef(0)
 
   const currentIndex = useMemo(
-    () => steps.findIndex((step) => step.id === currentStep),
-    [currentStep]
+    () => flowSteps.findIndex((step) => step.id === currentStep),
+    [currentStep, flowSteps]
   )
 
+  useEffect(() => {
+    if (!flowSteps.some((step) => step.id === currentStep)) {
+      setCurrentStep(flowSteps[0]?.id ?? 'welcome')
+    }
+  }, [flowSteps, currentStep])
+
   const goNext = () => {
-    const next = steps[currentIndex + 1]
+    const next = flowSteps[currentIndex + 1]
     if (next) {
       setCurrentStep(next.id)
     }
   }
 
   const goBack = () => {
-    const prev = steps[currentIndex - 1]
+    const prev = flowSteps[currentIndex - 1]
     if (prev) {
       setCurrentStep(prev.id)
     }
@@ -381,13 +399,17 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     }
   }
 
-  const currentStepMeta = steps.find((step) => step.id === currentStep)
+  const currentStepMeta = flowSteps.find((step) => step.id === currentStep)
 
   return (
     <div className="grid gap-3 lg:flex lg:h-full lg:flex-col lg:gap-6">
-      <Stepper steps={steps} currentStepId={currentStep} />
+      <Stepper steps={flowSteps} currentStepId={currentStep} />
       <div className="lg:flex-1 lg:h-full">
-        <OnboardingLayout title={currentStepMeta?.title ?? ''} description={currentStepMeta?.description}>
+        <OnboardingLayout
+          title={currentStepMeta?.title ?? ''}
+          description={currentStepMeta?.description}
+          eyebrow={eyebrowLabel}
+        >
           {stepContent()}
         </OnboardingLayout>
       </div>

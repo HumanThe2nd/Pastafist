@@ -1,4 +1,4 @@
-import type { GroceryListItem, GroceryRunGroup, PlanMeal, PlanSummary } from '../types'
+import type { GroceryListItem, GroceryRunGroup, PlanMeal, PlanSummary, TripPlan } from '../types'
 
 export const planSummary: PlanSummary = {
   id: 'plan-2025-02-06',
@@ -113,3 +113,42 @@ export const groceryRunGroups: GroceryRunGroup[] = [
     items: groceryList.filter((item) => item.purchased)
   }
 ]
+
+export const tripPlan: TripPlan = {
+  id: 'trip-1',
+  runLabel: 'This run',
+  runDate: 'Thu',
+  window: '3:00–5:00 pm',
+  timeline: [
+    { id: 't1', time: '3:00 pm', label: 'Leave home', detail: 'Transit + walk' },
+    { id: 't2', time: '3:15 pm', label: 'Metro', detail: 'best price', stopId: 's1' },
+    { id: 't3', time: '3:40 pm', label: 'Farm Boy', detail: 'produce', stopId: 's2' },
+    { id: 't4', time: '4:20 pm', label: 'Return', detail: 'ETA back home' }
+  ],
+  stops: [
+    {
+      id: 's1',
+      store: 'Metro',
+      address: '100 Rideau St',
+      eta: '12 min',
+      lat: 45.4253,
+      lng: -75.6926
+    },
+    {
+      id: 's2',
+      store: 'Farm Boy',
+      address: '360 Laurier Ave',
+      eta: '9 min',
+      lat: 45.4204,
+      lng: -75.7008
+    }
+  ],
+  route: [
+    [45.4215, -75.6972],
+    [45.4239, -75.6952],
+    [45.4253, -75.6926],
+    [45.4236, -75.6968],
+    [45.4221, -75.6991],
+    [45.4204, -75.7008]
+  ]
+}

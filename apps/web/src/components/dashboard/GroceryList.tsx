@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { GroceryRunGroup } from '../../types'
 
 type GroceryListProps = {
@@ -8,6 +8,8 @@ type GroceryListProps = {
   onToggleItem: (id: string) => void
   onStartRun: () => void
   onFinishRun: () => void
+  activeRunId: string | null
+  onRunChange: (id: string | null) => void
 }
 
 const renderItem = (item: GroceryRunGroup['items'][number], onToggleItem: (id: string) => void) => {
@@ -75,24 +77,16 @@ export default function GroceryList({
   shoppingFrequencyLabel,
   onToggleItem,
   onStartRun,
-  onFinishRun
+  onFinishRun,
+  activeRunId,
+  onRunChange
 }: GroceryListProps) {
   const runGroups = groups.filter((group) => group.status !== 'purchased')
   const purchasedGroups = groups.filter((group) => group.status === 'purchased')
 
-  const [activeRunId, setActiveRunId] = useState<string | null>(null)
-
   const remaining = runGroups
     .flatMap((group) => group.items)
     .filter((item) => !item.purchased).length
-
-  const currentGroup = runGroups.find((group) => group.status === 'current')
-
-  useEffect(() => {
-    if (!activeRunId || !runGroups.some((group) => group.id === activeRunId)) {
-      setActiveRunId(currentGroup?.id ?? runGroups[0]?.id ?? null)
-    }
-  }, [activeRunId, runGroups, currentGroup])
 
   const activeGroup = useMemo(
     () => runGroups.find((group) => group.id === activeRunId) ?? runGroups[0],
@@ -142,7 +136,7 @@ export default function GroceryList({
             <button
               key={group.id}
               type="button"
-              onClick={() => setActiveRunId(group.id)}
+              onClick={() => onRunChange(group.id)}
               className={[
                 'rounded-full border px-3 py-1 text-xs',
                 activeGroup?.id === group.id

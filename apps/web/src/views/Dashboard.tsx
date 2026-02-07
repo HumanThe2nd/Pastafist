@@ -2,19 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import GroceryList from '../components/dashboard/GroceryList'
 import MealSchedule from '../components/dashboard/MealSchedule'
 import PlanSummaryCard from '../components/dashboard/PlanSummaryCard'
-import { groceryRunGroups, planMeals, planSummary } from '../data/dashboard'
-import { loadPreferences } from '../utils/preferences'
-import { SHOPPING_FREQUENCY_OPTIONS, SHOPPING_INTERVAL_DAYS } from '../types'
+import TripPlanner from '../components/dashboard/TripPlanner'
+import { groceryRunGroups, planMeals, planSummary, tripPlan } from '../data/dashboard'
+import { SHOPPING_FREQUENCY_OPTIONS, SHOPPING_INTERVAL_DAYS, type OnboardingPreferences } from '../types'
 
 type DashboardProps = {
   onUpdatePreferences: () => void
+  preferences: OnboardingPreferences
 }
 
-export default function Dashboard({ onUpdatePreferences }: DashboardProps) {
-  const [preferences] = useState(loadPreferences)
+export default function Dashboard({ onUpdatePreferences, preferences }: DashboardProps) {
   const [meals, setMeals] = useState(planMeals)
   const [groups, setGroups] = useState(groceryRunGroups)
   const groceryListRef = useRef<HTMLDivElement | null>(null)
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
 
   const shoppingIntervalDays = SHOPPING_INTERVAL_DAYS[preferences.shoppingFrequency]
   const shoppingFrequencyLabel =
@@ -26,6 +27,44 @@ export default function Dashboard({ onUpdatePreferences }: DashboardProps) {
         ...group,
         items: group.items.map((item) => (item.id === id ? { ...item, purchased: !item.purchased } : item))
       }))
+    )
+  }
+
+  const activeRun =
+    groups.find((group) => group.id === activeRunId) ??
+    groups.find((group) => group.status === 'current') ??
+    groups.find((group) => group.status === 'later') ??
+    groups[0]
+
+  const setItemStore = (id: string, store: string) => {
+    if (!activeRun) return
+    setGroups((prev) =>
+      prev.map((group) =>
+        group.id === activeRun.id
+          ? {
+              ...group,
+              items: group.items.map((item) =>
+                item.id === id ? { ...item, bestStore: store, purchased: false } : item
+              )
+            }
+          : group
+      )
+    )
+  }
+
+  const markStoreDone = (store: string) => {
+    if (!activeRun) return
+    setGroups((prev) =>
+      prev.map((group) =>
+        group.id === activeRun.id
+          ? {
+              ...group,
+              items: group.items.map((item) =>
+                item.bestStore === store ? { ...item, purchased: true } : item
+              )
+            }
+          : group
+      )
     )
   }
 
@@ -66,6 +105,14 @@ export default function Dashboard({ onUpdatePreferences }: DashboardProps) {
     }
   }, [groups])
 
+  useEffect(() => {
+    if (!activeRunId || !groups.some((group) => group.id === activeRunId)) {
+      const current = groups.find((group) => group.status === 'current')
+      const fallback = current?.id ?? groups.find((group) => group.status === 'later')?.id ?? groups[0]?.id ?? null
+      setActiveRunId(fallback)
+    }
+  }, [activeRunId, groups])
+
   const swapMeal = (id: string) => {
     setMeals((prev) =>
       prev.map((meal) =>
@@ -88,6 +135,13 @@ export default function Dashboard({ onUpdatePreferences }: DashboardProps) {
       <div className="grid gap-6">
         <PlanSummaryCard summary={planSummary} onUpdatePreferences={onUpdatePreferences} onViewGroceryList={viewGroceryList} />
         <MealSchedule meals={meals} mealsPerDay={preferences.mealsPerDay} onSwap={swapMeal} />
+        <TripPlanner
+          plan={tripPlan}
+          items={activeRun?.items ?? []}
+          onToggleItem={toggleItem}
+          onSetItemStore={setItemStore}
+          onMarkStoreDone={markStoreDone}
+        />
       </div>
 
       <div className="grid gap-6">
@@ -99,6 +153,8 @@ export default function Dashboard({ onUpdatePreferences }: DashboardProps) {
             onToggleItem={toggleItem}
             onStartRun={startRun}
             onFinishRun={finishRun}
+            activeRunId={activeRunId}
+            onRunChange={setActiveRunId}
           />
         </div>
       </div>

@@ -43,3 +43,32 @@ export interface GroceryRunGroup {
   items: GroceryListItem[]
   runDate?: string
 }
+
+export type LatLng = [number, number]
+
+export interface TripTimelineStep {
+  id: string
+  time: string
+  label: string
+  detail?: string
+  stopId?: string
+}
+
+export interface TripStop {
+  id: string
+  store: string
+  address: string
+  eta: string
+  lat: number
+  lng: number
+}
+
+export interface TripPlan {
+  id: string
+  runLabel: string
+  runDate: string
+  window: string
+  timeline: TripTimelineStep[]
+  stops: TripStop[]
+  route: LatLng[]
+}
