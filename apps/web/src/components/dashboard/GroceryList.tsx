@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import type { GroceryRunGroup } from '../../types'
 
 type GroceryListProps = {
@@ -88,10 +87,8 @@ export default function GroceryList({
     .flatMap((group) => group.items)
     .filter((item) => !item.purchased).length
 
-  const activeGroup = useMemo(
-    () => runGroups.find((group) => group.id === activeRunId) ?? runGroups[0],
-    [runGroups, activeRunId]
-  )
+  const activeGroup = runGroups.find((group) => group.id === activeRunId) ?? runGroups[0]
+  const currentGroup = runGroups.find((group) => group.status === 'current')
 
   return (
     <div className="rounded-3xl bg-white px-6 py-5 shadow-soft dark:bg-[#1a1411]">

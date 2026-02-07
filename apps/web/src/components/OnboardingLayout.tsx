@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 type OnboardingLayoutProps = {
   title: string
   description?: string | undefined
-  eyebrow?: string
+  eyebrow?: string | undefined
   children: ReactNode
 }
 
