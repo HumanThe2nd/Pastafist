@@ -1,0 +1,466 @@
+[
+  {
+    "name": "College One Stop",
+    "lat": 44.2299582,
+    "lng": -76.4967906,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "New Merry Market",
+    "lat": 44.2296879,
+    "lng": -76.4911527,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Bulk Barn",
+    "lat": 44.231941,
+    "lng": -76.4839438,
+    "brand": "Bulk Barn",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.2398925,
+    "lng": -76.5285551,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Queens Convenience",
+    "lat": 44.2340723,
+    "lng": -76.5050344,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Parkway Grocery",
+    "lat": 44.2521394,
+    "lng": -76.5336484,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "East Side Market",
+    "lat": 44.256251,
+    "lng": -76.4968871,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Sunshine Variety",
+    "lat": 44.2627599,
+    "lng": -76.4911299,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Ken & Marg Grocery",
+    "lat": 44.2649174,
+    "lng": -76.478153,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.2679463,
+    "lng": -76.4795652,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "The Store Famous",
+    "lat": 44.235948,
+    "lng": -76.4901668,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Division Street Market",
+    "lat": 44.2394592,
+    "lng": -76.4946157,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "King Mart",
+    "lat": 44.2205938,
+    "lng": -76.5195927,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Asian Food World",
+    "lat": 44.2373966,
+    "lng": -76.5021925,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.2291243,
+    "lng": -76.480998,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "The Common Market",
+    "lat": 44.2275531,
+    "lng": -76.4823887,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Merry Market",
+    "lat": 44.2415275,
+    "lng": -76.507225,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Quickie",
+    "lat": 44.2404341,
+    "lng": -76.5139392,
+    "brand": "Quickie",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Convenience Stop",
+    "lat": 44.2329446,
+    "lng": -76.5013742,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Convenience Store",
+    "lat": 44.2515506,
+    "lng": -76.5323187,
+    "brand": null,
+    "operator": "Esso",
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Gordon's Daily Store",
+    "lat": 44.260893,
+    "lng": -76.4879843,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Grocery Checkout Fresh Market",
+    "lat": 44.2291829,
+    "lng": -76.4946722,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.2659906,
+    "lng": -76.4981831,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Snack Express",
+    "lat": 44.2377857,
+    "lng": -76.5509406,
+    "brand": null,
+    "operator": "Pioneer",
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Lasalle Express",
+    "lat": 44.2561255,
+    "lng": -76.4599257,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Barriefield Convenience",
+    "lat": 44.2531296,
+    "lng": -76.4611612,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Snack Express",
+    "lat": 44.2578208,
+    "lng": -76.5422474,
+    "brand": null,
+    "operator": "Pioneer",
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Shell",
+    "lat": 44.2372771,
+    "lng": -76.5034176,
+    "brand": "Shell",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Family Market",
+    "lat": 44.2687159,
+    "lng": -76.4801379,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Mac's",
+    "lat": 44.2586513,
+    "lng": -76.5218742,
+    "brand": "Mac's",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "General Brock's Commissary",
+    "lat": 44.2304901,
+    "lng": -76.4824423,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Unknown Store",
+    "lat": 44.2386908,
+    "lng": -76.4852822,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Namaste Indian Supermarket",
+    "lat": 44.2404428,
+    "lng": -76.5243587,
+    "brand": null,
+    "operator": "Kinnari Patel",
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "M&J Convenience Store",
+    "lat": 44.2310099,
+    "lng": -76.4796704,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "BV Food Market",
+    "lat": 44.2318051,
+    "lng": -76.4846348,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.2583196,
+    "lng": -76.518309,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "J&K Supermarket",
+    "lat": 44.2327009,
+    "lng": -76.4904426,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Cochrane's Convenience",
+    "lat": 44.235953,
+    "lng": -76.4839942,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Quattrocchi\u2019s",
+    "lat": 44.2487947,
+    "lng": -76.4867278,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Mclaughlin Foods",
+    "lat": 44.2430343,
+    "lng": -76.5027988,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Conveniently Convenient",
+    "lat": 44.2371269,
+    "lng": -76.5024929,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "John\u2019s",
+    "lat": 44.2351799,
+    "lng": -76.4968718,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Sun Convenience",
+    "lat": 44.2567879,
+    "lng": -76.4836271,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Patel Indian",
+    "lat": 44.2498779,
+    "lng": -76.5312041,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "K Asian Supermarket",
+    "lat": 44.232348,
+    "lng": -76.4881509,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Valu-mart",
+    "lat": 44.258945,
+    "lng": -76.4557747,
+    "brand": "Valu-mart",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Food Basics",
+    "lat": 44.2472885,
+    "lng": -76.5235612,
+    "brand": "Food Basics",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Food Basics",
+    "lat": 44.2335105,
+    "lng": -76.480643,
+    "brand": "Food Basics",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Quick Stop",
+    "lat": 44.241493,
+    "lng": -76.5021605,
+    "brand": "Quick Stop",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.241713,
+    "lng": -76.494492,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Bearance's Grocery",
+    "lat": 44.224742,
+    "lng": -76.508407,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "No Frills",
+    "lat": 44.264341,
+    "lng": -76.500316,
+    "brand": "No Frills",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Super Stop Convenience",
+    "lat": 44.2653544,
+    "lng": -76.4992209,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Convenience Store",
+    "lat": 44.2402265,
+    "lng": -76.542509,
+    "brand": null,
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Loblaws",
+    "lat": 44.242835,
+    "lng": -76.5185585,
+    "brand": "Loblaws",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Wholesale Club",
+    "lat": 44.255589,
+    "lng": -76.494532,
+    "brand": "Wholesale Club",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Circle K",
+    "lat": 44.2344045,
+    "lng": -76.4960695,
+    "brand": "Circle K",
+    "operator": null,
+    "source": "OpenStreetMap"
+  },
+  {
+    "name": "Metro",
+    "lat": 44.2323695,
+    "lng": -76.491886,
+    "brand": "Metro",
+    "operator": null,
+    "source": "OpenStreetMap"
+  }
+]
