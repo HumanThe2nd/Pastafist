@@ -41,7 +41,7 @@ def parse_object_id(value: str, *, label: str) -> ObjectId:
 async def _create_and_store_plan(db: AsyncDatabase, preferences: OnboardingPreferences) -> PlanPayload:
     generated = await generate_plan_payload(db, preferences)
     plans = db.get_collection("plans")
-    payload = generated.model_dump(exclude={"id"})
+    payload = generated.model_dump(exclude={"id"}, mode="json")
     result = await plans.insert_one(payload)
     payload["_id"] = result.inserted_id
     return plan_doc_to_payload(payload)
