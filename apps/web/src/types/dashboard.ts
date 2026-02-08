@@ -1,3 +1,5 @@
+import type { OnboardingPreferences } from './onboarding'
+
 export interface PlanSummary {
   id: string
   periodLabel: string
@@ -83,9 +85,43 @@ export interface DashboardLocalState {
 
 export type DashboardState = DashboardLocalState
 
+export interface ApiIngredientPriceLink {
+  price: number
+  buyUrl: string
+}
+
+export interface ApiIngredient {
+  id: string
+  name: string
+  imageUrl: string | null
+  priceLinks: ApiIngredientPriceLink[]
+}
+
+export interface ApiQuantity {
+  amount: number
+  unit: string
+}
+
+export interface ApiIngredientQuantity {
+  ingredient: ApiIngredient
+  quantity: ApiQuantity
+}
+
+export interface ApiShoppingList {
+  id: string
+  items: ApiIngredientQuantity[]
+}
+
+export interface ApiMeal {
+  id: string
+  title: string
+  ingredientIds: string[]
+}
+
 export interface DashboardBootstrapResponse {
-  summary: PlanSummary
-  meals: PlanMeal[]
-  groceryRuns: GroceryRunGroup[]
-  tripPlan: TripPlan
+  id: string
+  createdAt: string
+  preferences: OnboardingPreferences
+  mealSchedule: Array<[ApiMeal, string]>
+  shoppingSchedule: Array<[ApiShoppingList, string]>
 }

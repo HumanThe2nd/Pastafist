@@ -5,7 +5,6 @@ import PlanSummaryCard from '../components/dashboard/PlanSummaryCard'
 import TripPlanner from '../components/dashboard/TripPlanner'
 import {
   SHOPPING_FREQUENCY_OPTIONS,
-  SHOPPING_INTERVAL_DAYS,
   type DashboardState,
   type OnboardingPreferences,
 } from '../types'
@@ -40,9 +39,8 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
   const [dashboard, setDashboard] = useState<DashboardState | null>(null)
   const groceryListRef = useRef<HTMLDivElement | null>(null)
   const [dashboardHydrated, setDashboardHydrated] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const shoppingIntervalDays = SHOPPING_INTERVAL_DAYS[preferences.shoppingFrequency]
+  const shoppingIntervalDays = preferences.shoppingFrequency
   const shoppingFrequencyLabel =
     SHOPPING_FREQUENCY_OPTIONS.find((option) => option.value === preferences.shoppingFrequency)?.label ?? 'Weekly'
 
@@ -60,7 +58,6 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
 
     const hydrateDashboard = async () => {
       setDashboardHydrated(false)
-      setLoadError(null)
 
       if (!SKIP_INDEXEDDB_READ) {
         const cached = await loadDashboardState()
@@ -72,24 +69,18 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
         }
       }
 
-      try {
-        const bootstrap = await fetchDashboardBootstrap(preferences)
-        const next = normalizeDashboardState(buildDashboardState(bootstrap))
-        if (isCancelled) return
-        setDashboard(next)
-        void saveDashboardState(next)
-      } catch {
-        if (isCancelled) return
-        setDashboard(null)
-        setLoadError('Unable to load dashboard data from the API.')
-      } finally {
-        if (!isCancelled) {
-          setDashboardHydrated(true)
-        }
-      }
+      const bootstrap = await fetchDashboardBootstrap(preferences)
+      const next = normalizeDashboardState(buildDashboardState(bootstrap))
+      if (isCancelled) return
+      setDashboard(next)
+      void saveDashboardState(next)
     }
 
-    void hydrateDashboard()
+    void hydrateDashboard().finally(() => {
+      if (!isCancelled) {
+        setDashboardHydrated(true)
+      }
+    })
 
     return () => {
       isCancelled = true
@@ -206,16 +197,6 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
       <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
         <div className="rounded-3xl bg-white px-6 py-5 text-sm text-ink/60 shadow-soft dark:bg-[#1a1411] dark:text-[#c8b9a9]">
           Loading local dashboard state...
-        </div>
-      </section>
-    )
-  }
-
-  if (loadError && !dashboard) {
-    return (
-      <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-        <div className="rounded-3xl border border-ink/15 bg-white px-6 py-5 text-sm text-ink/70 shadow-soft dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#c8b9a9]">
-          {loadError}
         </div>
       </section>
     )

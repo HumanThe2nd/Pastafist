@@ -3,18 +3,27 @@ const API_BASE_URL = rawApiBase ? rawApiBase.replace(/\/+$/, '') : 'http://local
 
 export class ApiError extends Error {
   status: number
+  body?: string
+  path?: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, options?: { body?: string; path?: string }) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.body = options?.body
+    this.path = options?.path
   }
 }
 
 export const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${path}`, init)
+  const url = `${API_BASE_URL}${path}`
+  const response = await fetch(url, init)
   if (!response.ok) {
-    throw new ApiError(`Request failed: ${response.status}`, response.status)
+    const bodyText = await response.text()
+    throw new ApiError(`Request failed (${response.status}) for ${path}`, response.status, {
+      body: bodyText,
+      path
+    })
   }
   return (await response.json()) as T
 }

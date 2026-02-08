@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { StepDefinition } from '../types'
-import {
-  defaultPreferences,
-  SHOPPING_FREQUENCY_OPTIONS,
-  SHOPPING_INTERVAL_DAYS,
-  type OnboardingPreferences
-} from '../types'
+import { defaultPreferences, SHOPPING_FREQUENCY_OPTIONS, type OnboardingPreferences } from '../types'
 import { Button, InputField, OnboardingLayout, Stepper, TagSelect } from '../components'
 
 const steps: StepDefinition[] = [
@@ -17,22 +12,21 @@ const steps: StepDefinition[] = [
   {
     id: 'constraints',
     title: 'Constraints',
-    description: 'Budget, time, travel radius, and meal cadence.'
+    description: 'Budget, meal cadence, and travel radius.'
   },
   {
     id: 'diet',
     title: 'Diet',
-    description: 'Diet type, allergies, and optional calorie goals.'
+    description: 'Diet type, allergies, and macro focus.'
   },
   {
     id: 'stores',
-    title: 'Stores',
-    description: 'Location and preferred stores.'
+    title: 'Location',
+    description: 'Pickup location and shopping cadence.'
   }
 ]
 
-const dietOptions = [
-  'none',
+const dietOptions: OnboardingPreferences['dietType'][] = [
   'vegetarian',
   'vegan',
   'pescatarian',
@@ -43,13 +37,29 @@ const dietOptions = [
   'dairy-free'
 ]
 
-const allergyOptions = ['peanuts', 'tree nuts', 'dairy', 'egg', 'soy', 'gluten']
-const storeOptions = ['Metro', 'Farm Boy', 'Costco', 'Walmart', 'Loblaws', 'No Frills']
+const macroOptions: OnboardingPreferences['macroFocus'][] = [
+  'balanced',
+  'high-protein',
+  'low-carb',
+  'high-fiber'
+]
+
+const allergyOptions: OnboardingPreferences['allergies'][number][] = [
+  'peanuts',
+  'tree nuts',
+  'dairy',
+  'eggs',
+  'soy',
+  'gluten'
+]
+
 const GEOAPIFY_KEY = import.meta.env['VITE_GEOAPIFY_KEY'] as string | undefined
 
 type GeoapifySuggestion = {
   id: string
   label: string
+  lat: number
+  lng: number
 }
 
 type OnboardingProps = {
@@ -57,6 +67,16 @@ type OnboardingProps = {
   initialPreferences?: OnboardingPreferences
   eyebrowLabel?: string
   mode?: 'onboarding' | 'preferences'
+}
+
+const formatLatLng = (location: OnboardingPreferences['location']): string => {
+  return `${location[0].toFixed(5)}, ${location[1].toFixed(5)}`
+}
+
+const toAllergies = (values: string[]): OnboardingPreferences['allergies'] => {
+  return values.filter((value): value is OnboardingPreferences['allergies'][number] =>
+    allergyOptions.includes(value as OnboardingPreferences['allergies'][number])
+  )
 }
 
 export default function Onboarding({
@@ -71,11 +91,10 @@ export default function Onboarding({
   )
   const [currentStep, setCurrentStep] = useState<StepDefinition['id']>(flowSteps[0]?.id ?? 'welcome')
   const [preferences, setPreferences] = useState<OnboardingPreferences>(initialPreferences ?? defaultPreferences)
-  const [locationQuery, setLocationQuery] = useState(preferences.location ?? '')
+  const [locationQuery, setLocationQuery] = useState(() => formatLatLng((initialPreferences ?? defaultPreferences).location))
   const [locationResults, setLocationResults] = useState<GeoapifySuggestion[]>([])
   const [locationOpen, setLocationOpen] = useState(false)
   const [locationLoading, setLocationLoading] = useState(false)
-  const [locationError, setLocationError] = useState<string | null>(null)
   const activeRequest = useRef(0)
 
   const currentIndex = useMemo(
@@ -124,47 +143,51 @@ export default function Onboarding({
 
     const requestId = activeRequest.current + 1
     activeRequest.current = requestId
-    const controller = new AbortController()
-    const handle = window.setTimeout(async () => {
-      try {
-        setLocationLoading(true)
-        setLocationError(null)
-        const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete')
-        url.searchParams.set('text', query)
-        url.searchParams.set('apiKey', GEOAPIFY_KEY) // remind me to proxy this later. also, this api is quite low quality in terms of the results
-        const response = await fetch(url.toString(), { signal: controller.signal })
-        if (!response.ok) {
-          throw new Error('Failed to fetch address suggestions.')
-        }
-        const data = (await response.json()) as {
-          features?: Array<{ properties?: { formatted?: string; place_id?: string } }>
-        }
-        if (activeRequest.current !== requestId) return
-        const next = (data.features ?? [])
-          .map((feature) => {
-            const label = feature.properties?.formatted
-            if (!label) return null
-            return {
-              id: feature.properties?.place_id ?? label,
-              label
-            }
-          })
-          .filter(Boolean) as GeoapifySuggestion[]
-        setLocationResults(next)
-        setLocationOpen(next.length > 0)
-      } catch (error) {
-        if ((error as Error).name === 'AbortError') return
-        setLocationResults([])
-        setLocationOpen(false)
-        setLocationError('Unable to load suggestions right now.')
-      } finally {
-        setLocationLoading(false)
-      }
+    const handle = window.setTimeout(() => {
+      setLocationLoading(true)
+      const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete')
+      url.searchParams.set('text', query)
+      url.searchParams.set('apiKey', GEOAPIFY_KEY)
+
+      void fetch(url.toString())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Failed to fetch address suggestions.')
+          }
+          return response.json() as Promise<{
+            features?: Array<{
+              properties?: { formatted?: string; place_id?: string; lat?: number; lon?: number }
+              geometry?: { coordinates?: [number, number] }
+            }>
+          }>
+        })
+        .then((data) => {
+          if (activeRequest.current !== requestId) return
+          const next = (data.features ?? [])
+            .map((feature) => {
+              const label = feature.properties?.formatted
+              const lat = feature.properties?.lat ?? feature.geometry?.coordinates?.[1]
+              const lng = feature.properties?.lon ?? feature.geometry?.coordinates?.[0]
+              if (!label || typeof lat !== 'number' || typeof lng !== 'number') return null
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+              return {
+                id: feature.properties?.place_id ?? label,
+                label,
+                lat,
+                lng
+              }
+            })
+            .filter((result): result is GeoapifySuggestion => result !== null)
+          setLocationResults(next)
+          setLocationOpen(next.length > 0)
+        })
+        .finally(() => {
+          setLocationLoading(false)
+        })
     }, 250)
 
     return () => {
       window.clearTimeout(handle)
-      controller.abort()
     }
   }, [currentStep, locationQuery])
 
@@ -189,7 +212,7 @@ export default function Onboarding({
           <div className="grid gap-6">
             <div className="grid gap-3 md:grid-cols-2">
               <InputField
-                label="Weekly budget"
+                label="Budget"
                 type="number"
                 value={preferences.budget}
                 onChange={(event) => updatePreferences({ budget: Number(event.target.value) })}
@@ -201,21 +224,13 @@ export default function Onboarding({
                 onChange={(event) => updatePreferences({ mealsPerDay: Number(event.target.value) })}
               />
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <InputField
-                label="Cooking per meal (min)"
-                type="number"
-                value={preferences.timePerMeal}
-                onChange={(event) => updatePreferences({ timePerMeal: Number(event.target.value) })}
-                hint="Prep + cook time, not eating time."
-              />
-              <InputField
-                label="Travel radius (min)"
-                type="number"
-                value={preferences.travelRadiusMinutes}
-                onChange={(event) => updatePreferences({ travelRadiusMinutes: Number(event.target.value) })}
-              />
-            </div>
+            <InputField
+              label="Travel radius (meters)"
+              type="number"
+              value={preferences.travelRadiusMeters}
+              onChange={(event) => updatePreferences({ travelRadiusMeters: Number(event.target.value) })}
+              hint="Maximum distance for suggested stores."
+            />
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={goBack}>
                 Back
@@ -248,24 +263,36 @@ export default function Onboarding({
                   </option>
                 ))}
               </select>
-              <span className="text-xs text-ink/50 dark:text-[#c8b9a9]">Pick one. You can always change later.</span>
             </label>
             <TagSelect
               label="Allergies"
               options={allergyOptions}
               value={preferences.allergies}
-              onChange={(next) => updatePreferences({ allergies: next })}
+              onChange={(next) => updatePreferences({ allergies: toAllergies(next) })}
               helper="Leave empty if none."
             />
-            <InputField
-              label="Calorie goal (optional)"
-              type="number"
-              value={preferences.calorieGoal ?? ''}
-              onChange={(event) =>
-                updatePreferences({ calorieGoal: event.target.value ? Number(event.target.value) : null })
-              }
-              hint="We use this to suggest portion sizes."
-            />
+            <label className="grid gap-2 text-sm text-ink/70 dark:text-[#c8b9a9]">
+              <span className="text-[11px] uppercase tracking-[0.18em] leading-tight text-ink/50 dark:text-[#c8b9a9]">
+                Macro focus
+              </span>
+              <select
+                className={[
+                  'w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-ink',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-leaf/40',
+                  'dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#f5f0e8]'
+                ].join(' ')}
+                value={preferences.macroFocus}
+                onChange={(event) =>
+                  updatePreferences({ macroFocus: event.target.value as OnboardingPreferences['macroFocus'] })
+                }
+              >
+                {macroOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={goBack}>
                 Back
@@ -292,7 +319,6 @@ export default function Onboarding({
                   onChange={(event) => {
                     const next = event.target.value
                     setLocationQuery(next)
-                    updatePreferences({ location: next })
                     setLocationOpen(true)
                   }}
                   onFocus={() => {
@@ -309,7 +335,7 @@ export default function Onboarding({
                 {locationOpen ? (
                   <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-48 overflow-auto rounded-2xl border border-ink/10 bg-white p-1 shadow-soft dark:border-[#352721] dark:bg-[#1a1411]">
                     {locationLoading ? (
-                      <div className="px-3 py-2 text-xs text-ink/50 dark:text-[#c8b9a9]">Loading…</div>
+                      <div className="px-3 py-2 text-xs text-ink/50 dark:text-[#c8b9a9]">Loading...</div>
                     ) : locationResults.length > 0 ? (
                       locationResults.map((result) => (
                         <button
@@ -319,7 +345,7 @@ export default function Onboarding({
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
                             setLocationQuery(result.label)
-                            updatePreferences({ location: result.label })
+                            updatePreferences({ location: [result.lat, result.lng] })
                             setLocationOpen(false)
                           }}
                         >
@@ -332,14 +358,14 @@ export default function Onboarding({
                   </div>
                 ) : null}
               </div>
+              <span className="text-xs text-ink/50 dark:text-[#c8b9a9]">
+                Selected coordinates: {formatLatLng(preferences.location)}
+              </span>
               {GEOAPIFY_KEY ? null : (
                 <span className="text-xs text-ink/50 dark:text-[#c8b9a9]">
                   Add `VITE_GEOAPIFY_KEY` to enable address suggestions.
                 </span>
               )}
-              {locationError ? (
-                <span className="text-xs text-ink/50 dark:text-[#c8b9a9]">{locationError}</span>
-              ) : null}
             </label>
             <label className="grid gap-2 text-sm text-ink/70 dark:text-[#c8b9a9]">
               <span className="text-[11px] uppercase tracking-[0.18em] leading-tight text-ink/50 dark:text-[#c8b9a9]">
@@ -352,11 +378,7 @@ export default function Onboarding({
                   'dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#f5f0e8]'
                 ].join(' ')}
                 value={preferences.shoppingFrequency}
-                onChange={(event) =>
-                  updatePreferences({
-                    shoppingFrequency: event.target.value as OnboardingPreferences['shoppingFrequency']
-                  })
-                }
+                onChange={(event) => updatePreferences({ shoppingFrequency: Number(event.target.value) })}
               >
                 {SHOPPING_FREQUENCY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -365,16 +387,9 @@ export default function Onboarding({
                 ))}
               </select>
               <span className="text-xs text-ink/50 dark:text-[#c8b9a9]">
-                We translate this to {SHOPPING_INTERVAL_DAYS[preferences.shoppingFrequency]} days for planning.
+                Planning interval: {preferences.shoppingFrequency} days.
               </span>
             </label>
-            <TagSelect
-              label="Preferred stores"
-              options={storeOptions}
-              value={preferences.preferredStores}
-              onChange={(next) => updatePreferences({ preferredStores: next })}
-              helper="Optional. We can still auto-detect nearby stores."
-            />
             <div className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-xs text-ink/70 dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#c8b9a9]">
               Saved locally on this device by default. Sync is optional when accounts are added.
             </div>

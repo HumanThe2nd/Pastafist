@@ -1,4 +1,5 @@
-import type { DashboardBootstrapResponse, DashboardState, GroceryRunGroup } from '../types'
+import type { DashboardState } from '../types'
+import { buildDashboardState, deriveActiveRunId } from './dashboardAdapter'
 import { readLocalStore, writeLocalStore } from './localStore'
 
 const DASHBOARD_STATE_KEY = 'dashboard.state'
@@ -17,44 +18,17 @@ const isDashboardState = (value: unknown): value is DashboardState => {
   )
 }
 
-export const deriveActiveRunId = (groups: GroceryRunGroup[]): string | null => {
-  return (
-    groups.find((group) => group.status === 'current')?.id ??
-    groups.find((group) => group.status === 'later')?.id ??
-    groups[0]?.id ??
-    null
-  )
-}
-
-export const buildDashboardState = (bootstrap: DashboardBootstrapResponse): DashboardState => {
-  return {
-    summary: bootstrap.summary,
-    meals: bootstrap.meals,
-    groups: bootstrap.groceryRuns,
-    tripPlan: bootstrap.tripPlan,
-    activeRunId: deriveActiveRunId(bootstrap.groceryRuns)
-  }
-}
-
 const readLegacyLocalStorage = (): DashboardState | null => {
   if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as unknown
-    return isDashboardState(parsed) ? parsed : null
-  } catch {
-    return null
-  }
+  const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+  if (!raw) return null
+  const parsed = JSON.parse(raw) as unknown
+  return isDashboardState(parsed) ? parsed : null
 }
 
 const removeLegacyLocalStorage = () => {
   if (typeof window === 'undefined') return
-  try {
-    window.localStorage.removeItem(LEGACY_STORAGE_KEY)
-  } catch {
-    // ignore cleanup failures
-  }
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY)
 }
 
 export const loadDashboardState = async (): Promise<DashboardState | null> => {
@@ -74,9 +48,7 @@ export const saveDashboardState = async (state: DashboardState): Promise<void> =
   if (saved) return
 
   if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // Ignore storage errors (private mode, quota, etc.)
-  }
+  window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(state))
 }
+
+export { buildDashboardState, deriveActiveRunId }

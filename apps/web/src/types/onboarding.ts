@@ -1,5 +1,4 @@
 export type DietType =
-  | 'none'
   | 'vegetarian'
   | 'vegan'
   | 'pescatarian'
@@ -8,80 +7,44 @@ export type DietType =
   | 'keto'
   | 'gluten-free'
   | 'dairy-free'
-  | 'other'
 
 export type MacroFocus = 'balanced' | 'high-protein' | 'low-carb' | 'high-fiber'
+export type Allergy = 'peanuts' | 'tree nuts' | 'dairy' | 'eggs' | 'soy' | 'gluten'
+export type LocationPoint = [number, number]
 
-export type TravelMode = 'walk' | 'bike' | 'transit' | 'drive'
-
-export type Gender = 'female' | 'male' | 'non-binary' | 'prefer-not-to-say'
-
-export type BudgetPeriod = 'weekly' | 'biweekly' | 'monthly'
-
-export type ShoppingFrequency = 'every_other_day' | 'twice_weekly' | 'weekly' | 'biweekly' | 'monthly'
-
-export const SHOPPING_INTERVAL_DAYS: Record<ShoppingFrequency, number> = {
-  every_other_day: 2,
-  twice_weekly: 3.5,
-  weekly: 7,
-  biweekly: 14,
-  monthly: 30
+export interface ShoppingFrequencyOption {
+  value: number
+  label: string
 }
 
-export const SHOPPING_FREQUENCY_OPTIONS: Array<{ value: ShoppingFrequency; label: string }> = [
-  { value: 'every_other_day', label: 'Every other day' },
-  { value: 'twice_weekly', label: 'Twice weekly' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'biweekly', label: 'Biweekly' },
-  { value: 'monthly', label: 'Monthly' }
+export const SHOPPING_FREQUENCY_OPTIONS: ShoppingFrequencyOption[] = [
+  { value: 2, label: 'Every other day' },
+  { value: 3.5, label: 'Twice weekly' },
+  { value: 7, label: 'Weekly' },
+  { value: 14, label: 'Biweekly' },
+  { value: 30, label: 'Monthly' }
 ]
 
-export interface BudgetPreferences {
+export interface OnboardingPreferences {
   budget: number
-  currency: string
-  budgetPeriod: BudgetPeriod
   mealsPerDay: number
-  timePerMeal: number
-  travelRadiusMinutes: number
-  travelMode: TravelMode
-  servings: number
-}
-
-export interface NutritionPreferences {
+  travelRadiusMeters: number
   dietType: DietType
-  allergies: string[]
-  exclusions: string[]
+  allergies: Allergy[]
   macroFocus: MacroFocus
-  calorieGoal?: number | null
+  location: LocationPoint
+  shoppingFrequency: number
 }
-
-export interface ProfilePreferences {
-  gender?: Gender | null
-  location?: string | null
-  preferredStores: string[]
-  shoppingFrequency: ShoppingFrequency
-}
-
-export interface OnboardingPreferences extends BudgetPreferences, NutritionPreferences, ProfilePreferences {}
 
 export const defaultPreferences: OnboardingPreferences = {
   budget: 65,
-  currency: 'CAD',
-  budgetPeriod: 'weekly',
   mealsPerDay: 2,
-  timePerMeal: 25,
-  travelRadiusMinutes: 15,
-  travelMode: 'walk',
-  servings: 1,
-  dietType: 'none',
+  travelRadiusMeters: 3000,
+  dietType: 'vegetarian',
   allergies: [],
-  exclusions: [],
   macroFocus: 'balanced',
-  calorieGoal: null,
-  gender: null,
-  location: null,
-  preferredStores: [],
-  shoppingFrequency: 'weekly'
+  location: [45.4215, -75.6972],
+  shoppingFrequency: 7
 }
 
 export type StepId = 'welcome' | 'constraints' | 'diet' | 'stores'
