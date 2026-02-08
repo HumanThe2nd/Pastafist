@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 import logging
-import os
 from time import perf_counter
 from typing import Any
 
@@ -69,8 +67,7 @@ class RecipeClient:
 
         started = perf_counter()
         try:
-            timeout_seconds = float(os.getenv("RECIPE_BACKEND_TIMEOUT_SEC", "25"))
-            meals = await asyncio.wait_for(self._backend.fetch_meals(query, limit=limit), timeout=timeout_seconds)
+            meals = await self._backend.fetch_meals(query, limit=limit)
             if not meals:
                 raise RuntimeError(f"Recipe backend returned no meals for query={query!r} limit={limit}")
             latency_ms = (perf_counter() - started) * 1000

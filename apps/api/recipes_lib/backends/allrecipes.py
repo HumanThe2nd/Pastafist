@@ -1,13 +1,36 @@
 from __future__ import annotations
 
+import asyncio
+import html as html_lib
 import json
+import re
 from typing import Any
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+
+import requests
 
 from schemas import Ingredient, Meal
 
 from ..types import ScrapedMeal
 from .base import PlaywrightRecipeBackend, RecipeBackend
+
+
+_RECIPE_HREF_RE = re.compile(r"""href=["'](?P<href>[^"']*?/recipe/[^"']+)["']""", re.IGNORECASE)
+_CATEGORY_ITEM_RE = re.compile(
+    r"""id=["']mntl-link-list__item_\d+-\d+["'][^>]*>\s*<a[^>]*href=["'](?P<href>[^"']+)["']""",
+    re.IGNORECASE,
+)
+_JSON_LD_RE = re.compile(
+    r"""<script[^>]*type=["']application/ld\+json["'][^>]*>(?P<body>.*?)</script>""",
+    re.IGNORECASE | re.DOTALL,
+)
+_DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 def _norm_id(text: str) -> str:
@@ -44,7 +67,6 @@ def _extract_recipe_node(payload: Any) -> dict[str, Any] | None:
             return payload
         if isinstance(type_field, list) and "Recipe" in type_field:
             return payload
-
         graph = payload.get("@graph")
         if isinstance(graph, list):
             for item in graph:
@@ -52,13 +74,11 @@ def _extract_recipe_node(payload: Any) -> dict[str, Any] | None:
                 if found is not None:
                     return found
         return None
-
     if isinstance(payload, list):
         for item in payload:
             found = _extract_recipe_node(item)
             if found is not None:
                 return found
-
     return None
 
 
@@ -92,207 +112,141 @@ def _extract_image_url(raw: Any) -> str | None:
     return None
 
 
+def _fetch_html(url: str, timeout_seconds: float) -> str:
+    response = requests.get(url, headers=_DEFAULT_HEADERS, timeout=timeout_seconds)
+    response.raise_for_status()
+    return response.text
+
+
+def _extract_recipe_urls(html: str, base_url: str) -> list[str]:
+    urls: list[str] = []
+    for match in _RECIPE_HREF_RE.finditer(html):
+        href = html_lib.unescape(match.group("href")).strip()
+        full_url = urljoin(base_url, href)
+        if _is_recipe_url(full_url):
+            urls.append(full_url)
+    return _dedupe_keep_order(urls)
+
+
+def _extract_category_urls(html: str, base_url: str, query: str) -> list[str]:
+    urls: list[str] = []
+    for match in _CATEGORY_ITEM_RE.finditer(html):
+        href = html_lib.unescape(match.group("href")).strip()
+        full_url = urljoin(base_url, href)
+        if "/recipes/" in full_url:
+            urls.append(full_url)
+    urls = _dedupe_keep_order(urls)
+    if not query:
+        return urls
+    query_norm = query.strip().lower()
+    matched = [url for url in urls if query_norm in url.lower()]
+    return matched or urls
+
+
+def _extract_json_ld_payloads(html: str) -> list[Any]:
+    payloads: list[Any] = []
+    for match in _JSON_LD_RE.finditer(html):
+        raw = html_lib.unescape(match.group("body")).strip()
+        if not raw:
+            continue
+        try:
+            payloads.append(json.loads(raw))
+        except Exception:
+            continue
+    return payloads
+
+
 class AllrecipesBackend(PlaywrightRecipeBackend, RecipeBackend):
     name = "allrecipes"
     base_url = "https://www.allrecipes.com"
     recipes_az_url = "https://www.allrecipes.com/recipes-a-z-6735880"
-    max_category_pages = 3
+    max_category_pages = 2
+    request_timeout_seconds = 12.0
 
     async def __aenter__(self) -> "AllrecipesBackend":
-        await self._ensure_context()
+        # This backend intentionally uses direct HTTP fetches for speed/reliability.
         return self
 
     async def fetch_meals(self, query: str, limit: int = 10) -> list[ScrapedMeal]:
-        crawl_limit = max(limit * 2, min(limit + 4, 16))
-        recipe_urls_from_search = await self._collect_recipe_urls_from_search(query=query, limit=crawl_limit)
-        recipe_urls_from_az = await self._collect_recipe_urls_from_az(query=query, limit=crawl_limit)
-        recipe_urls = _dedupe_keep_order(recipe_urls_from_search + recipe_urls_from_az)
-        if not recipe_urls:
+        target_limit = max(1, min(limit, 5))
+        candidate_urls = await asyncio.to_thread(self._collect_recipe_urls, query, target_limit)
+        if not candidate_urls:
             raise RuntimeError(
-                "Allrecipes produced 0 recipe URLs "
-                f"(query={query!r}, az_urls={len(recipe_urls_from_az)}, search_urls={len(recipe_urls_from_search)})"
+                f"Allrecipes produced 0 recipe URLs (query={query!r})"
             )
 
         results: list[ScrapedMeal] = []
-        for url in recipe_urls:
+        for url in candidate_urls:
             meal = await self._fetch_single(url)
             if meal is not None:
                 results.append(meal)
-            if len(results) >= limit:
+            if len(results) >= target_limit:
                 break
+
         if not results:
             raise RuntimeError(
-                "Allrecipes recipe pages could not be parsed into meals "
-                f"(query={query!r}, candidate_urls={len(recipe_urls)})"
+                f"Allrecipes recipe pages could not be parsed into meals (query={query!r}, candidate_urls={len(candidate_urls)})"
             )
         return results
 
     async def get_meal(self, meal_url: str) -> ScrapedMeal | None:
         return await self._fetch_single(meal_url)
 
-    # Unused for recipes, implemented to satisfy PlaywrightBackend abstract methods.
     async def fetch_ingredients(self, query: str) -> list[Ingredient]:
         return []
 
     async def get_ingredient_info(self, ingredient_id: str) -> Ingredient:
         raise ValueError("Ingredient info not supported in Allrecipes backend")
 
-    async def _collect_recipe_urls_from_search(self, *, query: str, limit: int) -> list[str]:
+    def _collect_recipe_urls(self, query: str, target_limit: int) -> list[str]:
         search_url = f"{self.base_url}/search?q={quote(query)}"
-        page = await self.new_page()
-        try:
-            await self.goto(page, search_url, wait_until="domcontentloaded", timeout=12_000)
-            await page.wait_for_timeout(500)
-            links_raw = await page.eval_on_selector_all(
-                'a[href*="/recipe/"]',
-                "els => [...new Set(els.map(e => e.href))]",
-            )
-            if not isinstance(links_raw, list):
-                return []
-            links = [str(url) for url in links_raw if isinstance(url, str) and _is_recipe_url(url)]
-            return _dedupe_keep_order(links)[:limit]
-        finally:
-            await page.close()
+        search_html = _fetch_html(search_url, self.request_timeout_seconds)
+        links = _extract_recipe_urls(search_html, self.base_url)
 
-    async def _collect_recipe_urls_from_az(self, *, query: str, limit: int) -> list[str]:
-        page = await self.new_page()
-        try:
-            await self.goto(page, self.recipes_az_url, wait_until="domcontentloaded", timeout=12_000)
-            await page.wait_for_timeout(500)
-            categories_raw = await page.eval_on_selector_all(
-                '[id^="mntl-link-list__item_"] > a[href]',
-                "els => els.map(el => ({ href: el.href, text: (el.textContent || '').trim() }))",
-            )
-            if not isinstance(categories_raw, list):
-                return []
+        if len(links) < target_limit:
+            az_html = _fetch_html(self.recipes_az_url, self.request_timeout_seconds)
+            categories = _extract_category_urls(az_html, self.base_url, query)
+            for category_url in categories[: self.max_category_pages]:
+                category_html = _fetch_html(category_url, self.request_timeout_seconds)
+                links.extend(_extract_recipe_urls(category_html, self.base_url))
+                links = _dedupe_keep_order(links)
+                if len(links) >= target_limit * 2:
+                    break
 
-            query_norm = query.strip().lower()
-            category_links: list[str] = []
-            for item in categories_raw:
-                if not isinstance(item, dict):
-                    continue
-                href = item.get("href")
-                text = item.get("text")
-                if not isinstance(href, str):
-                    continue
-                if query_norm:
-                    haystack = f"{href.lower()} {(text.lower() if isinstance(text, str) else '')}"
-                    if query_norm not in haystack:
-                        continue
-                category_links.append(href)
-
-            category_links = _dedupe_keep_order(category_links)
-        finally:
-            await page.close()
-
-        if not category_links:
-            return []
-
-        recipe_links: list[str] = []
-        for category_url in category_links[: self.max_category_pages]:
-            if len(recipe_links) >= limit:
-                break
-            extracted = await self._extract_recipe_urls_from_category(category_url)
-            recipe_links.extend(extracted)
-            recipe_links = _dedupe_keep_order(recipe_links)
-
-        return recipe_links[:limit]
-
-    async def _extract_recipe_urls_from_category(self, category_url: str) -> list[str]:
-        page = await self.new_page()
-        try:
-            await self.goto(page, category_url, wait_until="domcontentloaded", timeout=12_000)
-            await page.wait_for_timeout(500)
-
-            links_raw = await page.eval_on_selector_all(
-                '[id^="mntl-card-list-items_"] a[href*="/recipe/"]',
-                "els => [...new Set(els.map(e => e.href))]",
-            )
-            if not isinstance(links_raw, list) or not links_raw:
-                links_raw = await page.eval_on_selector_all(
-                    'a[href*="/recipe/"]',
-                    "els => [...new Set(els.map(e => e.href))]",
-                )
-                if not isinstance(links_raw, list):
-                    return []
-
-            links = [str(url) for url in links_raw if isinstance(url, str) and _is_recipe_url(url)]
-            return _dedupe_keep_order(links)
-        finally:
-            await page.close()
+        return _dedupe_keep_order(links)[: max(target_limit * 2, target_limit)]
 
     async def _fetch_single(self, url: str) -> ScrapedMeal | None:
-        page = await self.new_page()
         try:
-            await self.goto(page, url, wait_until="domcontentloaded", timeout=12_000)
-            await page.wait_for_timeout(400)
+            html = await asyncio.to_thread(_fetch_html, url, self.request_timeout_seconds)
+        except Exception:
+            return None
 
-            data: dict[str, Any] | None = None
-            json_ld_scripts = await page.eval_on_selector_all(
-                'script[type="application/ld+json"]',
-                "els => els.map(el => el?.textContent || '')",
-            )
-            if isinstance(json_ld_scripts, list):
-                for raw_script in json_ld_scripts:
-                    if not isinstance(raw_script, str) or not raw_script.strip():
-                        continue
-                    try:
-                        parsed = json.loads(raw_script)
-                    except Exception:
-                        continue
-                    recipe_node = _extract_recipe_node(parsed)
-                    if recipe_node is not None:
-                        data = recipe_node
-                        break
+        recipe_data: dict[str, Any] | None = None
+        for payload in _extract_json_ld_payloads(html):
+            recipe_node = _extract_recipe_node(payload)
+            if recipe_node is not None:
+                recipe_data = recipe_node
+                break
 
-            if data is None:
-                title_raw = await page.eval_on_selector("h1", "el => el?.textContent")
-                ingredients_raw = await page.eval_on_selector_all(
-                    '[id^="mm-recipes-structured-ingredients_"]',
-                    "els => els.map(el => (el.textContent || '').trim()).filter(Boolean)",
-                )
-                if not isinstance(title_raw, str) or not title_raw.strip():
-                    return None
-                if not isinstance(ingredients_raw, list):
-                    return None
-                ingredient_lines = [line for line in ingredients_raw if isinstance(line, str) and line.strip()]
-                if not ingredient_lines:
-                    return None
+        if not isinstance(recipe_data, dict):
+            return None
 
-                image_url = await page.eval_on_selector(
-                    'meta[property="og:image"]',
-                    "el => el?.getAttribute('content')",
-                )
+        name = recipe_data.get("name")
+        ingredients_raw = _normalize_ingredients(recipe_data.get("recipeIngredient"))
+        if not isinstance(name, str) or not name.strip() or not ingredients_raw:
+            return None
 
-                meal = Meal(
-                    id=_norm_id(url),
-                    title=title_raw.strip(),
-                    ingredientIds=[_norm_id(line) for line in ingredient_lines],
-                )
-                return ScrapedMeal(
-                    meal=meal,
-                    ingredients_raw=ingredient_lines,
-                    nutrition=None,
-                    source_url=url,
-                    image_url=image_url if isinstance(image_url, str) else None,
-                )
-
-            name = data.get("name")
-            ingredients_raw = _normalize_ingredients(data.get("recipeIngredient"))
-            if not isinstance(name, str) or not name.strip() or not ingredients_raw:
-                return None
-
-            ingredient_ids = [_norm_id(item) for item in ingredients_raw]
-            meal = Meal(id=_norm_id(url), title=name.strip(), ingredientIds=ingredient_ids)
-            nutrition = data.get("nutrition") if isinstance(data.get("nutrition"), dict) else None
-            image_url = _extract_image_url(data.get("image"))
-
-            return ScrapedMeal(
-                meal=meal,
-                ingredients_raw=ingredients_raw,
-                nutrition=nutrition,
-                source_url=url,
-                image_url=image_url,
-            )
-        finally:
-            await page.close()
+        meal = Meal(
+            id=_norm_id(url),
+            title=name.strip(),
+            ingredientIds=[_norm_id(item) for item in ingredients_raw],
+        )
+        nutrition = recipe_data.get("nutrition") if isinstance(recipe_data.get("nutrition"), dict) else None
+        image_url = _extract_image_url(recipe_data.get("image"))
+        return ScrapedMeal(
+            meal=meal,
+            ingredients_raw=ingredients_raw,
+            nutrition=nutrition,
+            source_url=url,
+            image_url=image_url,
+        )

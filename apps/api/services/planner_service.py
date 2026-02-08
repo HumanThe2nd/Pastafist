@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
 import os
 from datetime import date, datetime, timedelta, timezone
-from time import perf_counter
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
@@ -121,55 +119,23 @@ def _meal_allowed(ingredients_raw: Sequence[str], prefs: OnboardingPreferences) 
     return True
 
 
-async def _run_with_timeout(
-    *,
-    label: str,
-    timeout_seconds: float,
-    coro: Any,
-) -> Any:
-    started = perf_counter()
-    try:
-        result = await asyncio.wait_for(coro, timeout=timeout_seconds)
-        elapsed = (perf_counter() - started) * 1000
-        logger.warning("planner_stage_ok stage=%s elapsed_ms=%.0f", label, elapsed)
-        return result
-    except asyncio.TimeoutError as exc:
-        elapsed = (perf_counter() - started) * 1000
-        logger.warning("planner_stage_timeout stage=%s elapsed_ms=%.0f", label, elapsed)
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=f"Planner stage timed out: {label} after {timeout_seconds:.0f}s",
-        ) from exc
-
-
 async def generate_plan_payload(db: DatabaseLike, preferences: OnboardingPreferences) -> PlanPayload:
-    logger.warning(
-        "planner_generate_start mealsPerDay=%s shoppingFrequency=%s radius=%s",
-        preferences.mealsPerDay,
-        preferences.shoppingFrequency,
-        preferences.travelRadiusMeters,
-    )
+    logger.warning("planner_stage=start")
     cache = ScrapeCache(db)
     ingredients_collection = db.get_collection("ingredients")
 
     allowed_backends: set[str] | None = None
-    store_lookup_timeout = float(os.getenv("PLANNER_STORE_LOOKUP_TIMEOUT_SEC", "12"))
-    recipe_fetch_timeout = float(os.getenv("PLANNER_RECIPE_FETCH_TIMEOUT_SEC", "30"))
-    pricing_timeout = float(os.getenv("PLANNER_PRICING_TIMEOUT_SEC", "30"))
 
     # Optional travel-radius precheck (does not yet filter products by store)
     if preferences.travelRadiusMeters > 0 and preferences.location:
+        logger.warning("planner_stage=store_lookup_start")
         from services.store_locator import fetch_stores
 
-        stores = await _run_with_timeout(
-            label="store_lookup",
-            timeout_seconds=store_lookup_timeout,
-            coro=fetch_stores(
-                db,
-                lat=preferences.location[0],
-                lng=preferences.location[1],
-                radius_m=preferences.travelRadiusMeters,
-            ),
+        stores = await fetch_stores(
+            db,
+            lat=preferences.location[0],
+            lng=preferences.location[1],
+            radius_m=preferences.travelRadiusMeters,
         )
         if not stores:
             raise HTTPException(
@@ -193,20 +159,19 @@ async def generate_plan_payload(db: DatabaseLike, preferences: OnboardingPrefere
             for key, backend_name in brand_map.items():
                 if key in text:
                     allowed_backends.add(backend_name)
+        logger.warning("planner_stage=store_lookup_done stores=%s", len(stores))
 
     async with AllrecipesBackend() as backend:
+        logger.warning("planner_stage=recipe_fetch_start")
         client = RecipeClient(backend=backend, cache=cache)
         try:
-            scraped = await _run_with_timeout(
-                label="allrecipes_fetch",
-                timeout_seconds=recipe_fetch_timeout,
-                coro=client.fetch_meals(query="dinner", limit=max(preferences.mealsPerDay * 2, 6)),
-            )
+            scraped = await client.fetch_meals(query="dinner", limit=5)
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Allrecipes scrape failed: {exc.__class__.__name__}: {exc}",
             ) from exc
+    logger.warning("planner_stage=recipe_fetch_done meals=%s", len(scraped))
 
     if not scraped:
         raise HTTPException(
@@ -223,19 +188,23 @@ async def generate_plan_payload(db: DatabaseLike, preferences: OnboardingPrefere
 
     meal_ingredients: list[list[Ingredient]] = []
     meals: list[Meal] = []
+    logger.warning("planner_stage=match_ingredients_start")
     for item in scraped:
         meals.append(item.meal)
         ing_list = await match_ingredients(ingredients_collection, item.ingredients_raw)
         meal_ingredients.append(ing_list)
+    logger.warning("planner_stage=match_ingredients_done meals=%s", len(meals))
 
     unique_ings = {ing.id: ing for ing_list in meal_ingredients for ing in ing_list}
-    priced_ings_list = await _run_with_timeout(
-        label="pricing_enrichment",
-        timeout_seconds=pricing_timeout,
-        coro=enrich_price_links(db, unique_ings.values(), allowed_backends=allowed_backends),
-    )
-    priced_ings = {ing.id: ing for ing in priced_ings_list}
-    meal_ingredients = [[priced_ings[ing.id] for ing in ing_list] for ing_list in meal_ingredients]
+    enable_price_scraping = os.getenv("PLANNER_ENABLE_PRICE_SCRAPING", "false").lower() == "true"
+    if enable_price_scraping:
+        logger.warning("planner_stage=pricing_start ingredients=%s", len(unique_ings))
+        priced_ings_list = await enrich_price_links(db, unique_ings.values(), allowed_backends=allowed_backends)
+        priced_ings = {ing.id: ing for ing in priced_ings_list}
+        meal_ingredients = [[priced_ings[ing.id] for ing in ing_list] for ing_list in meal_ingredients]
+        logger.warning("planner_stage=pricing_done")
+    else:
+        logger.warning("planner_stage=pricing_skipped")
 
     horizon_days = max(1, int(preferences.shoppingFrequency))
     meals_needed = max(1, preferences.mealsPerDay * horizon_days)
@@ -271,6 +240,7 @@ async def generate_plan_payload(db: DatabaseLike, preferences: OnboardingPrefere
 
     planner = LLMPlanner()
     try:
+        logger.warning("planner_stage=llm_start")
         llm_key = _llm_cache_key(meals, preferences, limit=len(meals))
         cached_order = await cache.get(llm_key)
         if (
@@ -287,6 +257,7 @@ async def generate_plan_payload(db: DatabaseLike, preferences: OnboardingPrefere
         id_to_ings = {m.id: ings for m, ings in zip(meals, meal_ingredients)}
         meals = [id_to_meal[mid] for mid in ordered_ids if mid in id_to_meal]
         meal_ingredients = [id_to_ings[mid] for mid in ordered_ids if mid in id_to_ings]
+        logger.warning("planner_stage=llm_done")
     except HTTPException:
         pass
 
