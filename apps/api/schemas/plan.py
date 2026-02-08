@@ -47,22 +47,15 @@ class ShoppingList(SchemaModel):
     id: str
     items: list[IngredientQuantity]
 
-
-MealScheduleEntry = tuple[Meal, date]
-ShoppingScheduleEntry = tuple[ShoppingList, date]
+def _default_meal_schedule() -> list[tuple[Meal, date]]: return []
 
 
-def _default_meal_schedule() -> list[MealScheduleEntry]:
-    return []
-
-
-def _default_shopping_schedule() -> list[ShoppingScheduleEntry]:
-    return []
+def _default_shopping_schedule() -> list[tuple[ShoppingList, date]]: return []
 
 
 class PlanPayload(SchemaModel):
     id: str
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     preferences: OnboardingPreferences
-    mealSchedule: list[MealScheduleEntry] = Field(default_factory=_default_meal_schedule)
-    shoppingSchedule: list[ShoppingScheduleEntry] = Field(default_factory=_default_shopping_schedule)
+    mealSchedule: list[tuple[Meal, date]] = Field(default_factory=_default_meal_schedule)
+    shoppingSchedule: list[tuple[ShoppingList, date]] = Field(default_factory=_default_shopping_schedule)
