@@ -72,3 +72,20 @@ export interface TripPlan {
   stops: TripStop[]
   route: LatLng[]
 }
+
+export interface DashboardLocalState {
+  summary: PlanSummary | null
+  meals: PlanMeal[]
+  groups: GroceryRunGroup[]
+  tripPlan: TripPlan | null
+  activeRunId: string | null
+}
+
+export type DashboardState = DashboardLocalState
+
+export interface DashboardBootstrapResponse {
+  summary: PlanSummary
+  meals: PlanMeal[]
+  groceryRuns: GroceryRunGroup[]
+  tripPlan: TripPlan
+}

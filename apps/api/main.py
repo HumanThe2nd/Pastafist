@@ -3,28 +3,22 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Callable
 
 from beanie import PydanticObjectId
 from beanie.odm.utils.init import Initializer
 from bson.errors import InvalidId
 from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from dummy import build_dummy_plan
 from models import DOCUMENT_MODELS, PlanDocument, PreferencesDocument
 from schemas import (
-    GeneratePlanRequest,
-    GeneratePlanResponse,
     OnboardingPreferences,
     PlanPayload,
-    SHOPPING_FREQUENCY_OPTIONS,
-    SHOPPING_INTERVAL_DAYS,
-    ShoppingFrequency,
-    ShoppingFrequencyOption,
-    defaultPreferences,
 )
 
 
@@ -32,21 +26,22 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class OnboardingMetaResponse(ApiModel):
-    defaultPreferences: OnboardingPreferences
-    shoppingFrequencyOptions: list[ShoppingFrequencyOption]
-    shoppingIntervalDays: dict[ShoppingFrequency, float]
-
-
 class PlanListResponse(ApiModel):
     plans: list[PlanPayload]
 
 
-ScraperGenerateFn = Callable[
-    [OnboardingPreferences],
-    object,
-]
+class DashboardBootstrapRequest(ApiModel):
+    preferences: OnboardingPreferences | None = None
+
+
 MongoDoc = dict[str, object]
+IS_DUMMY = True
+DEFAULT_WEB_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+WEB_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("WEB_ORIGINS", DEFAULT_WEB_ORIGINS).split(",")
+    if origin.strip()
+]
 
 
 def utc_now() -> datetime:
@@ -72,6 +67,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=WEB_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def parse_object_id(value: str, *, label: str) -> PydanticObjectId:
     try:
@@ -94,17 +97,18 @@ def plan_doc_to_payload(plan_doc: PlanDocument) -> PlanPayload:
         id=str(plan_doc.id),
         createdAt=plan_doc.createdAt,
         preferences=plan_doc.preferences,
-        summary=plan_doc.summary,
-        meals=plan_doc.meals,
-        groceryList=plan_doc.groceryList,
-        groceryRuns=plan_doc.groceryRuns,
-        tripPlan=plan_doc.tripPlan,
+        mealSchedule=plan_doc.mealSchedule,
+        shoppingSchedule=plan_doc.shoppingSchedule,
     )
 
+
 async def generate_plan_payload(preferences: OnboardingPreferences) -> PlanPayload:
+    if IS_DUMMY:
+        return build_dummy_plan(preferences)
+
     raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Scraper returned an unsupported plan payload shape",
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Live plan generation is not implemented yet. Set IS_DUMMY = True for dummy mode.",
     )
 
 
@@ -121,26 +125,24 @@ async def save_latest_preferences(preferences: OnboardingPreferences) -> Onboard
     return latest.payload
 
 
+async def get_latest_preferences_or_404() -> OnboardingPreferences:
+    latest = await PreferencesDocument.find_all().sort("-updatedAt").first_or_none()
+    if latest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No saved onboarding preferences",
+        )
+    return latest.payload
+
+
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/onboarding/meta", response_model=OnboardingMetaResponse)
-async def onboarding_meta() -> OnboardingMetaResponse:
-    return OnboardingMetaResponse(
-        defaultPreferences=defaultPreferences,
-        shoppingFrequencyOptions=SHOPPING_FREQUENCY_OPTIONS,
-        shoppingIntervalDays=SHOPPING_INTERVAL_DAYS,
-    )
-
-
 @app.get("/preferences", response_model=OnboardingPreferences)
 async def get_preferences() -> OnboardingPreferences:
-    latest = await PreferencesDocument.find_all().sort("-updatedAt").first_or_none()
-    if latest is None:
-        return defaultPreferences
-    return latest.payload
+    return await get_latest_preferences_or_404()
 
 
 @app.put("/preferences", response_model=OnboardingPreferences)
@@ -148,23 +150,42 @@ async def put_preferences(preferences: OnboardingPreferences) -> OnboardingPrefe
     return await save_latest_preferences(preferences)
 
 
-@app.post("/plans/generate", response_model=GeneratePlanResponse, status_code=status.HTTP_201_CREATED)
-async def post_generate_plan(request: GeneratePlanRequest) -> GeneratePlanResponse:
-    await save_latest_preferences(request.preferences)
-    generated = await generate_plan_payload(request.preferences)
+@app.post("/plans/generate", response_model=PlanPayload, status_code=status.HTTP_201_CREATED)
+async def post_generate_plan(preferences: OnboardingPreferences) -> PlanPayload:
+    await save_latest_preferences(preferences)
+    generated = await generate_plan_payload(preferences)
 
     plan_doc = PlanDocument(
         createdAt=generated.createdAt,
         preferences=generated.preferences,
-        summary=generated.summary,
-        meals=generated.meals,
-        groceryList=generated.groceryList,
-        groceryRuns=generated.groceryRuns,
-        tripPlan=generated.tripPlan,
+        mealSchedule=generated.mealSchedule,
+        shoppingSchedule=generated.shoppingSchedule,
     )
     await plan_doc.insert()
 
-    return GeneratePlanResponse(plan=plan_doc_to_payload(plan_doc))
+    return plan_doc_to_payload(plan_doc)
+
+
+@app.post("/dashboard/bootstrap", response_model=PlanPayload)
+async def dashboard_bootstrap(request: DashboardBootstrapRequest) -> PlanPayload:
+    latest_plan = await PlanDocument.find_all().sort("-createdAt").first_or_none()
+    if latest_plan is not None:
+        return plan_doc_to_payload(latest_plan)
+
+    if request.preferences is not None:
+        preferences = await save_latest_preferences(request.preferences)
+    else:
+        preferences = await get_latest_preferences_or_404()
+
+    generated = await generate_plan_payload(preferences)
+    plan_doc = PlanDocument(
+        createdAt=generated.createdAt,
+        preferences=generated.preferences,
+        mealSchedule=generated.mealSchedule,
+        shoppingSchedule=generated.shoppingSchedule,
+    )
+    await plan_doc.insert()
+    return plan_doc_to_payload(plan_doc)
 
 
 @app.get("/plans", response_model=PlanListResponse)

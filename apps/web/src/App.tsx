@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Dashboard from './views/Dashboard'
 import Onboarding from './views/Onboarding'
-import { loadPreferences } from './utils/preferences'
+import { defaultPreferences, type OnboardingPreferences } from './types'
+import { loadPreferences, savePreferences } from './utils/preferences'
 
 const stats = [
   { label: 'Avg. weekly savings', value: '$18' },
@@ -68,9 +69,45 @@ const storeHighlights = [
 
 export default function App() {
   const [view, setView] = useState<'landing' | 'dashboard'>('landing')
-  const [preferences, setPreferences] = useState(loadPreferences)
+  const [preferences, setPreferences] = useState<OnboardingPreferences>(defaultPreferences)
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false)
   const [showPreferences, setShowPreferences] = useState(false)
   const onboardingRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const hydratePreferences = async () => {
+      const stored = await loadPreferences()
+      if (!isCancelled) {
+        setPreferences(stored)
+        setPreferencesHydrated(true)
+      }
+    }
+
+    void hydratePreferences()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
+
+  const commitPreferences = (next: OnboardingPreferences) => {
+    setPreferences(next)
+    void savePreferences(next)
+  }
+
+  if (!preferencesHydrated) {
+    return (
+      <div className="min-h-screen bg-hero bg-no-repeat bg-cover text-ink dark:bg-[#17110f] dark:text-[#f5f0e8]">
+        <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
+          <div className="rounded-2xl bg-white/80 px-6 py-4 text-sm text-ink/70 shadow-soft dark:bg-[#201813]/90 dark:text-[#c8b9a9]">
+            Loading local preferences...
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const jumpToOnboarding = () => {
     setView('landing')
@@ -147,7 +184,7 @@ export default function App() {
                 <Onboarding
                   initialPreferences={preferences}
                   onComplete={(next) => {
-                    setPreferences(next)
+                    commitPreferences(next)
                     setView('dashboard')
                   }}
                 />
@@ -176,7 +213,7 @@ export default function App() {
                 eyebrowLabel="Preferences"
                 mode="preferences"
                 onComplete={(next) => {
-                  setPreferences(next)
+                  commitPreferences(next)
                   setShowPreferences(false)
                 }}
               />

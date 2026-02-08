@@ -6,7 +6,6 @@ import {
   SHOPPING_INTERVAL_DAYS,
   type OnboardingPreferences
 } from '../types'
-import { savePreferences } from '../utils/preferences'
 import { Button, InputField, OnboardingLayout, Stepper, TagSelect } from '../components'
 
 const steps: StepDefinition[] = [
@@ -54,7 +53,7 @@ type GeoapifySuggestion = {
 }
 
 type OnboardingProps = {
-  onComplete?: (preferences: OnboardingPreferences) => void
+  onComplete?: (preferences: OnboardingPreferences) => void | Promise<void>
   initialPreferences?: OnboardingPreferences
   eyebrowLabel?: string
   mode?: 'onboarding' | 'preferences'
@@ -385,7 +384,6 @@ export default function Onboarding({
               </Button>
               <Button
                 onClick={() => {
-                  savePreferences(preferences)
                   onComplete?.(preferences)
                 }}
               >

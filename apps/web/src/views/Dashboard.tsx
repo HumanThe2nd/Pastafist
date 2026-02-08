@@ -3,32 +3,114 @@ import GroceryList from '../components/dashboard/GroceryList'
 import MealSchedule from '../components/dashboard/MealSchedule'
 import PlanSummaryCard from '../components/dashboard/PlanSummaryCard'
 import TripPlanner from '../components/dashboard/TripPlanner'
-import { groceryRunGroups, planMeals, planSummary, tripPlan } from '../data/dashboard'
-import { SHOPPING_FREQUENCY_OPTIONS, SHOPPING_INTERVAL_DAYS, type OnboardingPreferences } from '../types'
+import {
+  SHOPPING_FREQUENCY_OPTIONS,
+  SHOPPING_INTERVAL_DAYS,
+  type DashboardState,
+  type OnboardingPreferences,
+} from '../types'
+import { fetchDashboardBootstrap } from '../utils/dashboardApi'
+import { buildDashboardState, deriveActiveRunId, loadDashboardState, saveDashboardState } from '../utils/dashboardState'
+
+const SKIP_INDEXEDDB_READ = import.meta.env['VITE_SKIP_INDEXEDDB'] === 'true'
 
 type DashboardProps = {
   onUpdatePreferences: () => void
   preferences: OnboardingPreferences
 }
 
+const normalizeDashboardState = (state: DashboardState): DashboardState => {
+  const groups = state.groups.map((group) => {
+    if (group.status !== 'current') return group
+    if (group.items.length > 0 && group.items.every((item) => item.purchased)) {
+      return { ...group, status: 'purchased' as const }
+    }
+    return group
+  })
+
+  const activeRunId =
+    state.activeRunId && groups.some((group) => group.id === state.activeRunId)
+      ? state.activeRunId
+      : deriveActiveRunId(groups)
+
+  return { ...state, groups, activeRunId }
+}
+
 export default function Dashboard({ onUpdatePreferences, preferences }: DashboardProps) {
-  const [meals, setMeals] = useState(planMeals)
-  const [groups, setGroups] = useState(groceryRunGroups)
+  const [dashboard, setDashboard] = useState<DashboardState | null>(null)
   const groceryListRef = useRef<HTMLDivElement | null>(null)
-  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const [dashboardHydrated, setDashboardHydrated] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const shoppingIntervalDays = SHOPPING_INTERVAL_DAYS[preferences.shoppingFrequency]
   const shoppingFrequencyLabel =
     SHOPPING_FREQUENCY_OPTIONS.find((option) => option.value === preferences.shoppingFrequency)?.label ?? 'Weekly'
 
+  const updateDashboard = (updater: (prev: DashboardState) => DashboardState) => {
+    setDashboard((prev) => {
+      if (!prev) return prev
+      const next = normalizeDashboardState(updater(prev))
+      void saveDashboardState(next)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const hydrateDashboard = async () => {
+      setDashboardHydrated(false)
+      setLoadError(null)
+
+      if (!SKIP_INDEXEDDB_READ) {
+        const cached = await loadDashboardState()
+        if (cached) {
+          if (isCancelled) return
+          setDashboard(normalizeDashboardState(cached))
+          setDashboardHydrated(true)
+          return
+        }
+      }
+
+      try {
+        const bootstrap = await fetchDashboardBootstrap(preferences)
+        const next = normalizeDashboardState(buildDashboardState(bootstrap))
+        if (isCancelled) return
+        setDashboard(next)
+        void saveDashboardState(next)
+      } catch {
+        if (isCancelled) return
+        setDashboard(null)
+        setLoadError('Unable to load dashboard data from the API.')
+      } finally {
+        if (!isCancelled) {
+          setDashboardHydrated(true)
+        }
+      }
+    }
+
+    void hydrateDashboard()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [preferences])
+
   const toggleItem = (id: string) => {
-    setGroups((prev) =>
-      prev.map((group) => ({
+    updateDashboard((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => ({
         ...group,
         items: group.items.map((item) => (item.id === id ? { ...item, purchased: !item.purchased } : item))
       }))
-    )
+    }))
   }
+
+  const groups = dashboard?.groups ?? []
+  const meals = dashboard?.meals ?? []
+  const summary = dashboard?.summary ?? null
+  const tripPlan = dashboard?.tripPlan ?? null
+  const activeRunId = dashboard?.activeRunId ?? null
 
   const activeRun =
     groups.find((group) => group.id === activeRunId) ??
@@ -38,8 +120,9 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
 
   const setItemStore = (id: string, store: string) => {
     if (!activeRun) return
-    setGroups((prev) =>
-      prev.map((group) =>
+    updateDashboard((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) =>
         group.id === activeRun.id
           ? {
               ...group,
@@ -49,13 +132,14 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
             }
           : group
       )
-    )
+    }))
   }
 
   const markStoreDone = (store: string) => {
     if (!activeRun) return
-    setGroups((prev) =>
-      prev.map((group) =>
+    updateDashboard((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) =>
         group.id === activeRun.id
           ? {
               ...group,
@@ -65,25 +149,29 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
             }
           : group
       )
-    )
+    }))
   }
 
   const startRun = () => {
-    setGroups((prev) => {
-      const hasCurrent = prev.some((group) => group.status === 'current')
+    updateDashboard((prev) => {
+      const hasCurrent = prev.groups.some((group) => group.status === 'current')
       if (hasCurrent) return prev
-      const nextIndex = prev.findIndex((group) => group.status === 'later')
+      const nextIndex = prev.groups.findIndex((group) => group.status === 'later')
       if (nextIndex === -1) return prev
-      return prev.map((group, index) =>
-        index === nextIndex ? { ...group, status: 'current' } : group
-      )
+      return {
+        ...prev,
+        groups: prev.groups.map((group, index) =>
+          index === nextIndex ? { ...group, status: 'current' } : group
+        )
+      }
     })
     viewGroceryList()
   }
 
   const finishRun = () => {
-    setGroups((prev) =>
-      prev.map((group) =>
+    updateDashboard((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) =>
         group.status === 'current'
           ? {
               ...group,
@@ -92,30 +180,13 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
             }
           : group
       )
-    )
+    }))
   }
 
-  useEffect(() => {
-    const current = groups.find((group) => group.status === 'current')
-    if (!current) return
-    if (current.items.length > 0 && current.items.every((item) => item.purchased)) {
-      setGroups((prev) =>
-        prev.map((group) => (group.id === current.id ? { ...group, status: 'purchased' } : group))
-      )
-    }
-  }, [groups])
-
-  useEffect(() => {
-    if (!activeRunId || !groups.some((group) => group.id === activeRunId)) {
-      const current = groups.find((group) => group.status === 'current')
-      const fallback = current?.id ?? groups.find((group) => group.status === 'later')?.id ?? groups[0]?.id ?? null
-      setActiveRunId(fallback)
-    }
-  }, [activeRunId, groups])
-
   const swapMeal = (id: string) => {
-    setMeals((prev) =>
-      prev.map((meal) =>
+    updateDashboard((prev) => ({
+      ...prev,
+      meals: prev.meals.map((meal) =>
         meal.id === id
           ? {
               ...meal,
@@ -123,25 +194,53 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
             }
           : meal
       )
-    )
+    }))
   }
 
   const viewGroceryList = () => {
     groceryListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  if (!dashboardHydrated) {
+    return (
+      <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+        <div className="rounded-3xl bg-white px-6 py-5 text-sm text-ink/60 shadow-soft dark:bg-[#1a1411] dark:text-[#c8b9a9]">
+          Loading local dashboard state...
+        </div>
+      </section>
+    )
+  }
+
+  if (loadError && !dashboard) {
+    return (
+      <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+        <div className="rounded-3xl border border-ink/15 bg-white px-6 py-5 text-sm text-ink/70 shadow-soft dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#c8b9a9]">
+          {loadError}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
       <div className="grid gap-6">
-        <PlanSummaryCard summary={planSummary} onUpdatePreferences={onUpdatePreferences} onViewGroceryList={viewGroceryList} />
+        {summary ? (
+          <PlanSummaryCard summary={summary} onUpdatePreferences={onUpdatePreferences} onViewGroceryList={viewGroceryList} />
+        ) : null}
         <MealSchedule meals={meals} mealsPerDay={preferences.mealsPerDay} onSwap={swapMeal} />
-        <TripPlanner
-          plan={tripPlan}
-          items={activeRun?.items ?? []}
-          onToggleItem={toggleItem}
-          onSetItemStore={setItemStore}
-          onMarkStoreDone={markStoreDone}
-        />
+        {tripPlan ? (
+          <TripPlanner
+            plan={tripPlan}
+            items={activeRun?.items ?? []}
+            onToggleItem={toggleItem}
+            onSetItemStore={setItemStore}
+            onMarkStoreDone={markStoreDone}
+          />
+        ) : (
+          <div className="rounded-3xl border border-ink/10 bg-white px-6 py-5 text-sm text-ink/60 shadow-soft dark:border-[#352721] dark:bg-[#1a1411] dark:text-[#c8b9a9]">
+            Trip planner unavailable until dashboard data is loaded from the server.
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6">
@@ -154,7 +253,9 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
             onStartRun={startRun}
             onFinishRun={finishRun}
             activeRunId={activeRunId}
-            onRunChange={setActiveRunId}
+            onRunChange={(id) => {
+              updateDashboard((prev) => ({ ...prev, activeRunId: id }))
+            }}
           />
         </div>
       </div>

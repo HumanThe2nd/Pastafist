@@ -1,24 +1,37 @@
 services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: college
+      WEB_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8000:8000"
-    volumes:
-      - ./apps/api:/app
+    depends_on:
+      - mongo
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000
+    env_file:
+      - ./apps/web/.env
     ports:
       - "5173:5173"
-    volumes:
-      - ./apps/web:/app/apps/web
-      - web_node_modules:/app/node_modules
     depends_on:
       - api
 
 volumes:
-  web_node_modules:
+  mongo_data:

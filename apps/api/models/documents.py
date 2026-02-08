@@ -1,27 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import TypeAlias
 
 from beanie import Document
 from pydantic import Field
 
 from schemas import (
-    GroceryListItem,
-    GroceryRunGroup,
     OnboardingPreferences,
-    PlanMeal,
-    PlanSummary,
-    TripPlan,
+    Meal,
+    ShoppingList,
 )
 
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def empty_grocery_runs() -> list[GroceryRunGroup]:
-    return []
 
 
 class PreferencesDocument(Document):
@@ -35,11 +28,8 @@ class PreferencesDocument(Document):
 class PlanDocument(Document):
     createdAt: datetime = Field(default_factory=utc_now)
     preferences: OnboardingPreferences
-    summary: PlanSummary
-    meals: list[PlanMeal]
-    groceryList: list[GroceryListItem]
-    groceryRuns: list[GroceryRunGroup] = Field(default_factory=empty_grocery_runs)
-    tripPlan: TripPlan | None = None
+    mealSchedule: list[tuple[Meal, date]] = Field(default_factory=list)
+    shoppingSchedule: list[tuple[ShoppingList, date]] = Field(default_factory=list)
 
     class Settings:
         name = "plans"

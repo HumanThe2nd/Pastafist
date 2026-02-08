@@ -1,0 +1,16 @@
+services:
+  api:
+    command: uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    volumes:
+      - ./apps/api:/app/apps/api
+      - api_venv:/app/apps/api/.venv
+
+  web:
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    volumes:
+      - ./apps/web:/app/apps/web
+      - web_node_modules:/app/apps/web/node_modules
+
+volumes:
+  api_venv:
+  web_node_modules:
