@@ -3,8 +3,8 @@ const API_BASE_URL = rawApiBase ? rawApiBase.replace(/\/+$/, '') : 'http://local
 
 export class ApiError extends Error {
   status: number
-  body?: string
-  path?: string
+  body: string | undefined
+  path: string | undefined
 
   constructor(message: string, status: number, options?: { body?: string; path?: string }) {
     super(message)

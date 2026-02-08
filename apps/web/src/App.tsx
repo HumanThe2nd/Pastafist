@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Dashboard from './views/Dashboard'
 import Onboarding from './views/Onboarding'
 import { defaultPreferences, type OnboardingPreferences } from './types'
-import { loadPreferences, savePreferences } from './utils/preferences'
+import { loadPreferences, sanitizePreferences, savePreferences } from './utils/preferences'
 
 const stats = [
   { label: 'Avg. weekly savings', value: '$18' },
@@ -93,8 +93,9 @@ export default function App() {
   }, [])
 
   const commitPreferences = (next: OnboardingPreferences) => {
-    setPreferences(next)
-    void savePreferences(next)
+    const sanitized = sanitizePreferences(next)
+    setPreferences(sanitized)
+    void savePreferences(sanitized)
   }
 
   if (!preferencesHydrated) {

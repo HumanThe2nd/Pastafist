@@ -4,7 +4,7 @@ import type { PlanMeal } from '../../types'
 type MealScheduleProps = {
   meals: PlanMeal[]
   mealsPerDay: number
-  onSwap: (id: string) => void
+  onSwap?: (id: string) => void
 }
 
 type MealSlot = PlanMeal & {
@@ -48,7 +48,7 @@ export default function MealSchedule({ meals, mealsPerDay, onSwap }: MealSchedul
           id: `placeholder-${day}-${label}`,
           day,
           slot: label,
-          title: 'Auto pick',
+          title: 'No meal planned',
           ingredientCount: 0,
           placeholder: true
         }
@@ -109,14 +109,16 @@ export default function MealSchedule({ meals, mealsPerDay, onSwap }: MealSchedul
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <span>{meal.ingredientCount} ingredients</span>
-                <button
-                  className="rounded-full border border-ink/15 px-3 py-1 text-xs dark:border-[#3b2923]"
-                  type="button"
-                  onClick={() => onSwap(meal.id)}
-                  disabled={meal.placeholder}
-                >
-                  Swap
-                </button>
+                {onSwap ? (
+                  <button
+                    className="rounded-full border border-ink/15 px-3 py-1 text-xs dark:border-[#3b2923]"
+                    type="button"
+                    onClick={() => onSwap(meal.id)}
+                    disabled={meal.placeholder}
+                  >
+                    Swap
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}

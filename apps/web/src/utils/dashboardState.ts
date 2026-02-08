@@ -1,8 +1,8 @@
-import type { DashboardState } from '../types'
+import type { DashboardState, OnboardingPreferences } from '../types'
 import { buildDashboardState, deriveActiveRunId } from './dashboardAdapter'
 import { readLocalStore, writeLocalStore } from './localStore'
 
-const DASHBOARD_STATE_KEY = 'dashboard.state'
+const DASHBOARD_STATE_KEY_PREFIX = 'dashboard.state'
 const LEGACY_STORAGE_KEY = 'pastafist.dashboard_state'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -18,6 +18,10 @@ const isDashboardState = (value: unknown): value is DashboardState => {
   )
 }
 
+const buildDashboardStateKey = (preferences: OnboardingPreferences): string => {
+  return `${DASHBOARD_STATE_KEY_PREFIX}:${JSON.stringify(preferences)}`
+}
+
 const readLegacyLocalStorage = (): DashboardState | null => {
   if (typeof window === 'undefined') return null
   const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY)
@@ -31,20 +35,25 @@ const removeLegacyLocalStorage = () => {
   window.localStorage.removeItem(LEGACY_STORAGE_KEY)
 }
 
-export const loadDashboardState = async (): Promise<DashboardState | null> => {
-  const indexed = await readLocalStore<unknown>(DASHBOARD_STATE_KEY)
+export const loadDashboardState = async (
+  preferences: OnboardingPreferences
+): Promise<DashboardState | null> => {
+  const indexed = await readLocalStore<unknown>(buildDashboardStateKey(preferences))
   if (isDashboardState(indexed)) return indexed
 
   const legacy = readLegacyLocalStorage()
   if (!legacy) return null
 
-  const saved = await writeLocalStore(DASHBOARD_STATE_KEY, legacy)
+  const saved = await writeLocalStore(buildDashboardStateKey(preferences), legacy)
   if (saved) removeLegacyLocalStorage()
   return legacy
 }
 
-export const saveDashboardState = async (state: DashboardState): Promise<void> => {
-  const saved = await writeLocalStore(DASHBOARD_STATE_KEY, state)
+export const saveDashboardState = async (
+  state: DashboardState,
+  preferences: OnboardingPreferences
+): Promise<void> => {
+  const saved = await writeLocalStore(buildDashboardStateKey(preferences), state)
   if (saved) return
 
   if (typeof window === 'undefined') return

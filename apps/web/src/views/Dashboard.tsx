@@ -39,6 +39,7 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
   const [dashboard, setDashboard] = useState<DashboardState | null>(null)
   const groceryListRef = useRef<HTMLDivElement | null>(null)
   const [dashboardHydrated, setDashboardHydrated] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
 
   const shoppingIntervalDays = preferences.shoppingFrequency
   const shoppingFrequencyLabel =
@@ -48,36 +49,58 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
     setDashboard((prev) => {
       if (!prev) return prev
       const next = normalizeDashboardState(updater(prev))
-      void saveDashboardState(next)
+      void saveDashboardState(next, preferences)
       return next
     })
   }
 
   useEffect(() => {
     let isCancelled = false
+    let hydratedFromCache = false
 
     const hydrateDashboard = async () => {
+      let hasCachedState = false
       setDashboardHydrated(false)
+      setDashboardError(null)
 
       if (!SKIP_INDEXEDDB_READ) {
-        const cached = await loadDashboardState()
+        const cached = await loadDashboardState(preferences)
         if (cached) {
           if (isCancelled) return
           setDashboard(normalizeDashboardState(cached))
           setDashboardHydrated(true)
-          return
+          hasCachedState = true
+          hydratedFromCache = true
         }
       }
 
-      const bootstrap = await fetchDashboardBootstrap(preferences)
-      const next = normalizeDashboardState(buildDashboardState(bootstrap))
-      if (isCancelled) return
-      setDashboard(next)
-      void saveDashboardState(next)
+      try {
+        const bootstrap = await fetchDashboardBootstrap(preferences)
+        const next = normalizeDashboardState(buildDashboardState(bootstrap))
+        if (isCancelled) return
+        setDashboard(next)
+        void saveDashboardState(next, preferences)
+      } catch (error) {
+        if (isCancelled) return
+        if (!hasCachedState) {
+          setDashboard({
+            summary: null,
+            meals: [],
+            groups: [],
+            tripPlan: null,
+            activeRunId: null
+          })
+        }
+        setDashboardError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to refresh dashboard data from the server.'
+        )
+      }
     }
 
     void hydrateDashboard().finally(() => {
-      if (!isCancelled) {
+      if (!isCancelled && !hydratedFromCache) {
         setDashboardHydrated(true)
       }
     })
@@ -174,20 +197,6 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
     }))
   }
 
-  const swapMeal = (id: string) => {
-    updateDashboard((prev) => ({
-      ...prev,
-      meals: prev.meals.map((meal) =>
-        meal.id === id
-          ? {
-              ...meal,
-              title: meal.title === 'Chef surprise' ? 'Seasonal bowl' : 'Chef surprise'
-            }
-          : meal
-      )
-    }))
-  }
-
   const viewGroceryList = () => {
     groceryListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -205,10 +214,15 @@ export default function Dashboard({ onUpdatePreferences, preferences }: Dashboar
   return (
     <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
       <div className="grid gap-6">
+        {dashboardError ? (
+          <div className="rounded-3xl border border-amber-400/40 bg-amber-50 px-6 py-5 text-sm text-amber-900 shadow-soft dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100">
+            {dashboardError} Showing locally available data when possible.
+          </div>
+        ) : null}
         {summary ? (
           <PlanSummaryCard summary={summary} onUpdatePreferences={onUpdatePreferences} onViewGroceryList={viewGroceryList} />
         ) : null}
-        <MealSchedule meals={meals} mealsPerDay={preferences.mealsPerDay} onSwap={swapMeal} />
+        <MealSchedule meals={meals} mealsPerDay={preferences.mealsPerDay} />
         {tripPlan ? (
           <TripPlanner
             plan={tripPlan}

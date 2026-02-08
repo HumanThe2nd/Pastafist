@@ -10,6 +10,10 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    volumes:
+      - playwright_cache:/root/.cache/ms-playwright
+    env_file:
+      - ./apps/api/.env
     environment:
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB: college
@@ -35,3 +39,4 @@ services:
 
 volumes:
   mongo_data:
+  playwright_cache:

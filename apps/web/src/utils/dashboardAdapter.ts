@@ -48,7 +48,7 @@ const parseStoreName = (buyUrl: string, fallbackIndex: number): string => {
   const host = hostMatch?.[1] ?? ''
   const root = host.split('.')[0] ?? ''
   const text = root.replace(/[-_]/g, ' ').trim()
-  if (!text) return `Store ${fallbackIndex + 1}`
+  if (!text) return `Unknown store ${fallbackIndex + 1}`
   return text.replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
@@ -67,16 +67,7 @@ const assertBootstrapShape = (bootstrap: DashboardBootstrapResponse): void => {
 }
 
 const mapStoreOptions = (priceLinks: PriceLinks, quantityLabel: string): StoreOption[] => {
-  if (priceLinks.length === 0) {
-    return [
-      {
-        store: 'Store TBD',
-        unitPrice: 'Price unavailable',
-        quantity: quantityLabel,
-        purchaseUrl: ''
-      }
-    ]
-  }
+  if (priceLinks.length === 0) return []
 
   return [...priceLinks]
     .sort((a, b) => a.price - b.price)
@@ -125,7 +116,7 @@ const buildGroups = (bootstrap: DashboardBootstrapResponse): GroupAndCost => {
       const items: GroceryListItem[] = list.items.map((entry, itemIndex) => {
         const quantityLabel = `${formatAmount(entry.quantity.amount)} ${entry.quantity.unit}`
         const storeOptions = mapStoreOptions(entry.ingredient.priceLinks, quantityLabel)
-        const bestStore = storeOptions[0]?.store ?? 'Store TBD'
+        const bestStore = storeOptions[0]?.store ?? 'Unavailable'
         const sortedPrices = [...entry.ingredient.priceLinks].map((link) => link.price).sort((a, b) => a - b)
         const cheapest = sortedPrices[0] ?? 0
         const priciest = sortedPrices[sortedPrices.length - 1] ?? cheapest

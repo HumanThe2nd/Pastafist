@@ -128,6 +128,10 @@ const normalizePreferences = (value: unknown): OnboardingPreferences => {
   }
 }
 
+export const sanitizePreferences = (value: unknown): OnboardingPreferences => {
+  return normalizePreferences(value)
+}
+
 const readFromIndexedDb = async (): Promise<OnboardingPreferences | null> => {
   const record = await readLocalStore<unknown>(PREFERENCES_KEY)
   if (!record) return null

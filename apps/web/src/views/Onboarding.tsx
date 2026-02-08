@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { StepDefinition } from '../types'
 import { defaultPreferences, SHOPPING_FREQUENCY_OPTIONS, type OnboardingPreferences } from '../types'
 import { Button, InputField, OnboardingLayout, Stepper, TagSelect } from '../components'
+import { sanitizePreferences } from '../utils/preferences'
 
 const steps: StepDefinition[] = [
   {
@@ -101,12 +102,10 @@ export default function Onboarding({
     () => flowSteps.findIndex((step) => step.id === currentStep),
     [currentStep, flowSteps]
   )
-
-  useEffect(() => {
-    if (!flowSteps.some((step) => step.id === currentStep)) {
-      setCurrentStep(flowSteps[0]?.id ?? 'welcome')
-    }
-  }, [flowSteps, currentStep])
+  const canFetchLocationSuggestions =
+    currentStep === 'stores' &&
+    Boolean(GEOAPIFY_KEY) &&
+    locationQuery.trim().length >= 3
 
   const goNext = () => {
     const next = flowSteps[currentIndex + 1]
@@ -127,19 +126,9 @@ export default function Onboarding({
   }
 
   useEffect(() => {
-    if (currentStep !== 'stores') return
-    if (!GEOAPIFY_KEY) {
-      setLocationResults([])
-      setLocationOpen(false)
-      return
-    }
+    if (!canFetchLocationSuggestions || !GEOAPIFY_KEY) return
 
     const query = locationQuery.trim()
-    if (query.length < 3) {
-      setLocationResults([])
-      setLocationOpen(false)
-      return
-    }
 
     const requestId = activeRequest.current + 1
     activeRequest.current = requestId
@@ -189,7 +178,7 @@ export default function Onboarding({
     return () => {
       window.clearTimeout(handle)
     }
-  }, [currentStep, locationQuery])
+  }, [canFetchLocationSuggestions, locationQuery])
 
   const stepContent = () => {
     switch (currentStep) {
@@ -332,7 +321,7 @@ export default function Onboarding({
                   placeholder="Thompson Residence, Ottawa"
                   autoComplete="off"
                 />
-                {locationOpen ? (
+                {locationOpen && canFetchLocationSuggestions ? (
                   <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-48 overflow-auto rounded-2xl border border-ink/10 bg-white p-1 shadow-soft dark:border-[#352721] dark:bg-[#1a1411]">
                     {locationLoading ? (
                       <div className="px-3 py-2 text-xs text-ink/50 dark:text-[#c8b9a9]">Loading...</div>
@@ -399,7 +388,7 @@ export default function Onboarding({
               </Button>
               <Button
                 onClick={() => {
-                  onComplete?.(preferences)
+                  onComplete?.(sanitizePreferences(preferences))
                 }}
               >
                 Finish

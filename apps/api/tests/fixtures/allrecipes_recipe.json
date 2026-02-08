@@ -1,0 +1,20 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Sheet Pan Lemon Chicken",
+  "image": [
+    "https://images.media-allrecipes.com/userphotos/960x0/1234567.jpg"
+  ],
+  "recipeIngredient": [
+    "1 lb chicken breast",
+    "2 tbsp olive oil",
+    "1 lemon"
+  ],
+  "nutrition": {
+    "@type": "NutritionInformation",
+    "calories": "320 calories",
+    "proteinContent": "35 g",
+    "carbohydrateContent": "6 g",
+    "fatContent": "17 g"
+  }
+}

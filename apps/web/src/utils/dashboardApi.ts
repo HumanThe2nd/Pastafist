@@ -3,6 +3,7 @@ import { fetchJson } from './api'
 
 type DashboardBootstrapRequest = {
   preferences: OnboardingPreferences
+  forceRefresh: boolean
 }
 
 export const fetchDashboardBootstrap = async (
@@ -13,6 +14,6 @@ export const fetchDashboardBootstrap = async (
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ preferences } satisfies DashboardBootstrapRequest)
+    body: JSON.stringify({ preferences, forceRefresh: true } satisfies DashboardBootstrapRequest)
   })
 }
